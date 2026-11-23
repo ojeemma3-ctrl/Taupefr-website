@@ -9,7 +9,8 @@ import { Assistant } from "./components/Assistant.tsx";
 import { Profile } from "./components/Profile.tsx";
 import { TaskGuide } from "./components/TaskGuide.tsx";
 import { Button, Heading } from "./components/ui.tsx";
-import { sampleStudents } from "./content/sample-students.ts";
+import { DemoBar, DemoPicker } from "./components/Demo.tsx";
+import type { SampleStudent } from "./content/sample-students.ts";
 import { tasks, type MilestoneId } from "./content/tasks.ts";
 import type { Situation } from "./lib/situation.ts";
 import {
@@ -22,6 +23,7 @@ import { parseSaved, save, useSavedRaw } from "./lib/storage.ts";
 type View =
   | "welcome"
   | "profile"
+  | "demo"
   | "dashboard"
   | "housing"
   | "found"
@@ -59,8 +61,7 @@ export default function Home() {
     [situation, setSituation] = useState<Situation | null>(null),
     [profileMode, setProfileMode] = useState<"new" | "update">("new"),
     [done, setDone] = useState<string[]>([]),
-    [demo, setDemo] = useState(false),
-    [demoStage, setDemoStage] = useState(0),
+    [demo, setDemo] = useState<SampleStudent | null>(null),
     [asking, setAsking] = useState<MilestoneId | null>(null),
     [notice, setNotice] = useState<string | null>(null),
     [guideId, setGuideId] = useState<string | null>(null);
@@ -68,8 +69,9 @@ export default function Home() {
   const saved = parseSaved(useSavedRaw());
   // Keep the profile and progress in this browser (see app/lib/storage.ts).
   useEffect(() => {
-    if (situation) save({ situation, done });
-  }, [situation, done]);
+    // Demo students are never saved, so the visitor's own plan stays intact.
+    if (situation && !demo) save({ situation, done });
+  }, [situation, done, demo]);
   const plan: Plan | null = situation
     ? buildPlan(situation, new Set(done))
     : null;
@@ -117,26 +119,34 @@ export default function Home() {
     setProfileMode(mode);
     setView("profile");
   };
-  const flow: View[] = [
-    "welcome",
-    "profile",
-    "dashboard",
-    "housing",
-    "found",
-    "dashboard",
-    "market",
-    "community",
-    "settled",
-  ];
-  const moveDemo = (delta: number) => {
-    const n = Math.max(0, Math.min(flow.length - 1, demoStage + delta));
-    setDemoStage(n);
-    if (flow[n] === "profile") setProfileMode("new");
-    // The old click-through demo needs a situation past the profile step.
-    // Sample data, for demonstration (replaced by demo mode in PR 8).
-    if (n > 1 && !situation) setSituation(sampleStudents[0].situation);
-    setView(flow[n]);
+  const startDemo = (st: SampleStudent) => {
+    // Sample data, for demonstration. Never saved in the browser.
+    setDemo(st);
+    setSituation(st.situation);
+    setDone(st.doneTaskIds);
+    setNotice(null);
+    setGuideId(null);
+    nav("dashboard");
   };
+  const exitDemo = () => {
+    setDemo(null);
+    setSituation(null);
+    setDone([]);
+    setNotice(null);
+    setGuideId(null);
+    nav("welcome");
+  };
+  const demoBar = demo && (
+    <DemoBar
+      current={demo}
+      onSwitch={startDemo}
+      onReset={() => {
+        startDemo(demo);
+        setNotice(`Reset: ${demo.name}’s plan is back to the start.`);
+      }}
+      onExit={exitDemo}
+    />
+  );
   if (view === "welcome")
     return (
       <main className="welcome">
@@ -181,14 +191,8 @@ export default function Home() {
             >
               {saved && !situation ? "Start again" : "Start your journey"}
             </Button>
-            <Button
-              quiet
-              onClick={() => {
-                setDemo(true);
-                moveDemo(1);
-              }}
-            >
-              View student journey
+            <Button quiet onClick={() => nav("demo")}>
+              Try a sample student
             </Button>
           </div>
         </section>
@@ -202,6 +206,14 @@ export default function Home() {
           <small>Your next chapter starts here</small>
         </div>
       </main>
+    );
+  if (view === "demo")
+    return (
+      <DemoPicker
+        logo={<Logo />}
+        onPick={startDemo}
+        onBack={() => nav("welcome")}
+      />
     );
   if (view === "profile")
     return (
@@ -225,13 +237,7 @@ export default function Home() {
             nav(profileMode === "update" ? "dashboard" : "welcome")
           }
         />
-        {demo && (
-          <DemoControls
-            stage={demoStage}
-            move={moveDemo}
-            onExit={() => setDemo(false)}
-          />
-        )}
+        {demoBar}
       </>
     );
   if (view === "found")
@@ -244,31 +250,25 @@ export default function Home() {
             nav("dashboard");
           }}
         />
-        {demo && (
-          <DemoControls
-            stage={demoStage}
-            move={moveDemo}
-            onExit={() => setDemo(false)}
-          />
-        )}
+        {demoBar}
       </>
     );
   if (view === "settled")
     return (
       <>
         <Celebrate onNext={() => nav("dashboard")} />
-        {demo && (
-          <DemoControls
-            stage={demoStage}
-            move={moveDemo}
-            onExit={() => setDemo(false)}
-          />
-        )}
+        {demoBar}
       </>
     );
   return (
     <>
-      <Shell view={view} nav={nav} plan={plan} name={situation?.name}>
+      <Shell
+        view={view}
+        nav={nav}
+        plan={plan}
+        name={situation?.name}
+        demo={Boolean(demo)}
+      >
         {notice && view === "dashboard" && (
           <p className="notice" role="status">
             {notice}
@@ -333,51 +333,8 @@ export default function Home() {
           onNo={() => answer(false)}
         />
       )}
-      {demo && (
-        <DemoControls
-          stage={demoStage}
-          move={moveDemo}
-          onExit={() => setDemo(false)}
-        />
-      )}
+      {demoBar}
     </>
-  );
-}
-function DemoControls({
-  stage,
-  move,
-  onExit,
-}: {
-  stage: number;
-  move: (delta: number) => void;
-  onExit: () => void;
-}) {
-  const names = [
-    "Welcome",
-    "Student profile",
-    "Personal plan",
-    "Housing",
-    "Housing secured",
-    "Updated plan",
-    "Marketplace",
-    "Community",
-    "Settled",
-  ];
-  return (
-    <div className="demo-controls">
-      <span>
-        Student journey · {stage + 1}/{names.length} · {names[stage]}
-      </span>
-      <div>
-        <button onClick={() => move(-1)} disabled={!stage}>
-          ← Previous
-        </button>
-        <button onClick={onExit}>Exit</button>
-        <button onClick={() => move(1)} disabled={stage === names.length - 1}>
-          Next →
-        </button>
-      </div>
-    </div>
   );
 }
 function Shell({
@@ -385,12 +342,14 @@ function Shell({
   nav,
   plan,
   name,
+  demo,
   children,
 }: {
   view: View;
   nav: (v: View) => void;
   plan: Plan | null;
   name?: string;
+  demo: boolean;
   children: React.ReactNode;
 }) {
   // No menu of stages or sections: everything starts from the plan, and
@@ -401,7 +360,11 @@ function Shell({
         <Logo />
         <b className="name">
           {name ? `Hi ${name}` : "Hi there"}
-          <small>Prototype · saved in this browser</small>
+          <small>
+            {demo
+              ? "Sample student · not saved"
+              : "Prototype · saved in this browser"}
+          </small>
         </b>
         <nav>
           <button

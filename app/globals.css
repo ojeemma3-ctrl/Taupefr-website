@@ -2354,3 +2354,101 @@ button:disabled {
   font-weight: bold;
   line-height: 1.4;
 }
+
+/* PR 8: demo mode */
+.demo-picker {
+  min-height: 100vh;
+  padding: 28px max(5.5vw, 24px) 120px;
+}
+.demo-picker nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.demo-picker section {
+  max-width: 900px;
+  margin: 8vh auto 0;
+}
+.demo-picker h1 {
+  font:
+    44px Georgia,
+    serif;
+  letter-spacing: -1.5px;
+  margin: 0 0 12px;
+}
+.demo-picker .lede {
+  color: var(--muted);
+  max-width: 560px;
+  line-height: 1.5;
+}
+.demo-students {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.demo-students button {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  color: var(--ink);
+}
+.demo-students button:hover {
+  border-color: var(--wine);
+}
+.demo-students b {
+  font:
+    22px Georgia,
+    serif;
+}
+.demo-students span {
+  font-size: 13px;
+  line-height: 1.45;
+}
+.demo-students small {
+  color: var(--wine);
+  font-size: 11px;
+  font-weight: bold;
+}
+.demo-controls select {
+  max-width: 340px;
+  border: 1px solid #6e5c67;
+  border-radius: 7px;
+  background: #3a2f38;
+  color: #fff;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 11px;
+}
+@media (max-width: 700px) {
+  .demo-controls {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    transform: none;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .demo-controls select {
+    max-width: none;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+    order: 2;
+  }
+  .demo-controls div {
+    order: 3;
+  }
+  body:has(.demo-controls) .ask-taupe {
+    bottom: 120px;
+  }
+  .demo-picker h1 {
+    font-size: 34px;
+  }
+}
+body:has(.demo-controls) .content {
+  padding-bottom: 130px;
+}
