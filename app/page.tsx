@@ -1,258 +1,51 @@
 "use client";
 import { useEffect, useState } from "react";
+import {
+  ConfirmMilestone,
+  Dashboard,
+  stageLabel,
+} from "./components/Dashboard.tsx";
+import { Assistant } from "./components/Assistant.tsx";
+import { Profile } from "./components/Profile.tsx";
+import { TaskGuide } from "./components/TaskGuide.tsx";
+import { Button, Heading } from "./components/ui.tsx";
+import { DemoBar, DemoPicker } from "./components/Demo.tsx";
+import type { SampleStudent } from "./content/sample-students.ts";
+import { tasks, type MilestoneId } from "./content/tasks.ts";
+import type { Situation } from "./lib/situation.ts";
+import {
+  buildPlan,
+  confirmMilestone,
+  getStage,
+  type Plan,
+} from "./lib/stage-engine.ts";
+import { parseSaved, save, useSavedRaw } from "./lib/storage.ts";
 type View =
   | "welcome"
-  | "journey"
   | "profile"
+  | "demo"
   | "dashboard"
   | "housing"
   | "found"
-  | "admin"
   | "market"
   | "community"
   | "settled";
-const stages = [
-  "Admission",
-  "Accommodation",
-  "Arrival",
-  "Administration",
-  "Furniture",
-  "Community",
-  "Settled",
-];
-const tasks = [
+const housingPlatforms = [
   {
-    name: "French SIM card",
-    time: "10 min",
-    why: "A French phone number makes it easier to complete your bank, housing and administrative procedures.",
-    needs: ["Passport", "Payment method"],
-    official: "https://www.service-public.fr/",
+    name: "CROUS housing",
+    copy: "Public student residences. Check the application dates and whether you can apply from abroad.",
+    url: "https://trouverunlogement.lescrous.fr",
   },
   {
-    name: "Bank account",
-    time: "15–20 min",
-    why: "Open a French bank account to receive payments, manage rent and use services such as CAF.",
-    needs: ["Passport", "Proof of address", "Enrolment certificate"],
-    official: "https://www.service-public.fr/",
+    name: "Studapart",
+    copy: "A private platform for student rentals. Read its terms and fees before you commit.",
+    url: "https://www.studapart.com",
   },
   {
-    name: "Health insurance",
-    time: "15 min",
-    why: "Register for health cover so you can access care and claim your student health rights.",
-    needs: ["Passport", "Enrolment certificate", "Visa or residence permit"],
-    official: "https://www.etudiant.gouv.fr/",
+    name: "Other platforms",
+    copy: "Private landlords, agencies and shared-housing sites. Compare carefully and never pay before signing a lease.",
+    url: "",
   },
-  {
-    name: "CAF housing aid",
-    time: "20 min",
-    why: "Apply for housing support that can reduce the cost of your monthly rent.",
-    needs: ["Lease agreement", "French bank details", "Residence permit"],
-    official: "https://www.caf.fr/",
-  },
-  {
-    name: "Residence permit",
-    time: "30 min",
-    why: "Confirm your right to stay in France after arrival, when your visa requires it.",
-    needs: ["Passport", "Visa", "Proof of address"],
-    official: "https://administration-etrangers-en-france.interieur.gouv.fr/",
-  },
-];
-const guideContent: Record<
-  string,
-  {
-    title: string;
-    why: string;
-    steps: { title: string; copy: string; official?: boolean }[];
-    mistakes: string[];
-  }
-> = {
-  "CAF housing aid": {
-    title: "Apply for CAF housing assistance",
-    why: "CAF can help reduce the cost of your rent once you are living in France. TaupeFR explains the order, while CAF remains the official authority for your application.",
-    steps: [
-      {
-        title: "Prepare your documents",
-        copy: "Keep your rental agreement, French bank details (RIB), passport and residence documents together before you begin.",
-      },
-      {
-        title: "Create or access your CAF account",
-        copy: "Use the official CAF website. Choose the option that matches your situation as a student renting in France.",
-        official: true,
-      },
-      {
-        title: "Enter your housing information",
-        copy: "Use the details exactly as they appear on your lease: address, landlord or residence, start date and monthly rent.",
-      },
-      {
-        title: "Add your bank details",
-        copy: "Enter the RIB for your French bank account so CAF can pay any approved support.",
-      },
-      {
-        title: "Review and submit",
-        copy: "Check every date and document before you submit. Keep the confirmation for your records.",
-      },
-    ],
-    mistakes: [
-      "Applying before you have your signed lease",
-      "Entering rent information that does not match the lease",
-      "Forgetting to update CAF if you move address",
-    ],
-  },
-  "Health insurance": {
-    title: "Register for French health insurance",
-    why: "French health insurance helps you access healthcare and reimbursement as a student. Registration is separate from a private top-up insurance policy.",
-    steps: [
-      {
-        title: "Prepare your documents",
-        copy: "Have your passport, enrolment certificate, visa or residence permit and French address ready.",
-      },
-      {
-        title: "Open the student health portal",
-        copy: "Go to the official student health insurance portal and start your registration.",
-        official: true,
-      },
-      {
-        title: "Enter your identity details",
-        copy: "Use the same spelling and date of birth as on your passport and visa.",
-      },
-      {
-        title: "Add your university details",
-        copy: "Enter your current institution and academic year exactly as shown on your enrolment certificate.",
-      },
-      {
-        title: "Save your confirmation",
-        copy: "Keep your registration confirmation. Your social security number may be issued after your file is reviewed.",
-      },
-    ],
-    mistakes: [
-      "Using a nickname instead of your passport name",
-      "Uploading a photo that is hard to read",
-      "Assuming private travel insurance replaces registration",
-    ],
-  },
-  "Residence permit": {
-    title: "Confirm your residence permit steps",
-    why: "Depending on your visa, you may need to validate it online or apply for a residence permit after arrival. The official immigration portal confirms which route applies to you.",
-    steps: [
-      {
-        title: "Check your visa type",
-        copy: "Look at the visa in your passport. Check whether it says VLS-TS or requires a separate residence permit process.",
-      },
-      {
-        title: "Prepare your documents",
-        copy: "Have your passport, visa, proof of address and university enrolment certificate ready.",
-      },
-      {
-        title: "Use the official immigration portal",
-        copy: "Follow the route shown for your visa category. Do not rely on a generic process if your visa says something different.",
-        official: true,
-      },
-      {
-        title: "Submit your information",
-        copy: "Enter your arrival date and contact details carefully, then upload only the documents requested.",
-      },
-      {
-        title: "Keep proof of submission",
-        copy: "Save the confirmation and any payment receipt. Take these with you to any appointment.",
-      },
-    ],
-    mistakes: [
-      "Waiting until the last week before the deadline",
-      "Selecting the wrong visa category",
-      "Not saving the confirmation or receipt",
-    ],
-  },
-  "Bank account": {
-    title: "Open a French bank account",
-    why: "A French account makes rent, CAF and day-to-day payments much easier to manage.",
-    steps: [
-      {
-        title: "Prepare your documents",
-        copy: "Have your passport, proof of address and enrolment certificate ready.",
-      },
-      {
-        title: "Choose a provider",
-        copy: "Compare student-friendly banks and their appointment requirements.",
-      },
-      {
-        title: "Start the official application",
-        copy: "Use the bank’s official application or booking page.",
-        official: true,
-      },
-      {
-        title: "Verify your identity",
-        copy: "Follow the bank’s instructions and use documents matching your passport.",
-      },
-    ],
-    mistakes: [
-      "Using an expired proof of address",
-      "Missing a requested appointment",
-      "Sharing banking details by message",
-    ],
-  },
-  "French SIM card": {
-    title: "Get your French SIM card",
-    why: "A French number helps with bank verification, housing contacts and administrative services.",
-    steps: [
-      {
-        title: "Prepare your identification",
-        copy: "Keep your passport and a payment method ready.",
-      },
-      {
-        title: "Compare student options",
-        copy: "Choose a provider with enough data and a contract that matches your stay.",
-      },
-      {
-        title: "Activate through the provider",
-        copy: "Use the provider’s official activation process.",
-        official: true,
-      },
-      {
-        title: "Test your number",
-        copy: "Make a call and receive a text before using it for official accounts.",
-      },
-    ],
-    mistakes: [
-      "Choosing a contract with a long commitment",
-      "Not checking international calling options",
-      "Forgetting to keep your activation details",
-    ],
-  },
-};
-const homes = [
-  ["Private studio", "Bordeaux centre", "€590 / month", "24 m²"],
-  ["Shared home", "Talence", "€465 / month", "3 roommates"],
-  ["Student residence", "Pessac", "€420 / month", "Furnished"],
-];
-const questions = [
-  [
-    "Where will you study?",
-    ["University of Bordeaux", "Bordeaux Montaigne", "Other institution"],
-  ],
-  [
-    "When do you arrive?",
-    ["September 2026", "January 2027", "I’m not sure yet"],
-  ],
-  [
-    "What is your monthly housing budget?",
-    ["Under €450", "€450 – €650", "€650+"],
-  ],
-  [
-    "What feels right for you?",
-    ["Private studio", "Shared accommodation", "Student residence"],
-  ],
-  [
-    "Would a roommate work for you?",
-    ["Yes, I’d like to meet people", "Maybe", "No, I prefer my own space"],
-  ],
-  [
-    "What language do you speak most comfortably?",
-    ["English", "French", "Other"],
-  ],
-  [
-    "A little more about your move",
-    ["I need a guarantor", "I need admin support", "I’m ready to explore"],
-  ],
 ];
 function Logo() {
   return (
@@ -263,80 +56,143 @@ function Logo() {
     </div>
   );
 }
-function Button({
-  children,
-  onClick,
-  quiet = false,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  quiet?: boolean;
-}) {
-  return (
-    <button onClick={onClick} className={"button " + (quiet ? "quiet" : "")}>
-      {children}
-      <span>→</span>
-    </button>
-  );
-}
 export default function Home() {
   const [view, setView] = useState<View>("welcome"),
-    [step, setStep] = useState(0),
-    [answers, setAnswers] = useState<Record<string, string>>({}),
-    [done, setDone] = useState(["Admission"]),
-    [home, setHome] = useState<number | null>(null),
-    [demo, setDemo] = useState(false),
-    [demoStage, setDemoStage] = useState(0);
-  const finish = (x: string) => setDone((d) => (d.includes(x) ? d : [...d, x]));
+    [situation, setSituation] = useState<Situation | null>(null),
+    [profileMode, setProfileMode] = useState<"new" | "update">("new"),
+    [done, setDone] = useState<string[]>([]),
+    [demo, setDemo] = useState<SampleStudent | null>(null),
+    [asking, setAsking] = useState<MilestoneId | null>(null),
+    [notice, setNotice] = useState<string | null>(null),
+    [guideId, setGuideId] = useState<string | null>(null);
   const nav = (v: View) => setView(v);
-  const flow: View[] = [
-    "welcome",
-    "profile",
-    "dashboard",
-    "housing",
-    "found",
-    "admin",
-    "admin",
-    "market",
-    "community",
-    "settled",
-  ];
-  const moveDemo = (delta: number) => {
-    const n = Math.max(0, Math.min(flow.length - 1, demoStage + delta));
-    setDemoStage(n);
-    setView(flow[n]);
-    if (flow[n] === "profile") setStep(0);
+  const saved = parseSaved(useSavedRaw());
+  // Keep the profile and progress in this browser (see app/lib/storage.ts).
+  useEffect(() => {
+    // Demo students are never saved, so the visitor's own plan stays intact.
+    if (situation && !demo) save({ situation, done });
+  }, [situation, done, demo]);
+  const plan: Plan | null = situation
+    ? buildPlan(situation, new Set(done))
+    : null;
+  const guide = tasks.find((t) => t.id === guideId) ?? null;
+  // What's next: the task after this one on the plan, else the first other one.
+  const others = plan?.priorities ?? [];
+  const at = others.findIndex((t) => t.id === guideId);
+  const guideNext =
+    others.slice(at + 1).find((t) => t.id !== guideId) ??
+    others.find((t) => t.id !== guideId) ??
+    null;
+  const toggleDone = (id: string) =>
+    setDone((d) => (d.includes(id) ? d.filter((x) => x !== id) : [...d, id]));
+  // Milestones always ask first. Yes updates the situation and the engine
+  // re-runs; "Not yet" changes nothing (docs/PRODUCT_PLAN.md §5).
+  const answer = (yes: boolean) => {
+    const id = asking;
+    setAsking(null);
+    if (!id || !situation) return;
+    const before = getStage(situation);
+    if (!yes) {
+      setNotice(`No change. You’re still in ${stageLabel(before)}.`);
+      return;
+    }
+    const next = confirmMilestone(situation, id);
+    setSituation(next);
+    const after = getStage(next);
+    if (id === "accommodation_secured" && view === "housing") {
+      setNotice(null);
+      nav("found");
+      return;
+    }
+    if (id === "feel_settled" && view === "community") {
+      setNotice(null);
+      nav("settled");
+      return;
+    }
+    setNotice(
+      after !== before
+        ? `Your plan has moved on. You’re now in ${stageLabel(after)}.`
+        : "Thanks. Your plan has been updated.",
+    );
   };
+  const startProfile = (mode: "new" | "update") => {
+    setProfileMode(mode);
+    setView("profile");
+  };
+  const startDemo = (st: SampleStudent) => {
+    // Sample data, for demonstration. Never saved in the browser.
+    setDemo(st);
+    setSituation(st.situation);
+    setDone(st.doneTaskIds);
+    setNotice(null);
+    setGuideId(null);
+    nav("dashboard");
+  };
+  const exitDemo = () => {
+    setDemo(null);
+    setSituation(null);
+    setDone([]);
+    setNotice(null);
+    setGuideId(null);
+    nav("welcome");
+  };
+  const demoBar = demo && (
+    <DemoBar
+      current={demo}
+      onSwitch={startDemo}
+      onReset={() => {
+        startDemo(demo);
+        setNotice(`Reset: ${demo.name}’s plan is back to the start.`);
+      }}
+      onExit={exitDemo}
+    />
+  );
   if (view === "welcome")
     return (
       <main className="welcome">
         <nav>
           <Logo />
-          <button className="plain" onClick={() => nav("journey")}>
-            How it works
-          </button>
         </nav>
         <section className="hero">
-          <p className="eyebrow">University of Bordeaux · Student journey</p>
+          <p className="eyebrow">
+            For international students moving to Bordeaux
+          </p>
           <h1>
             Welcome to France,
             <br />
             <em>before you arrive.</em>
           </h1>
           <p className="lede">
-            TaupeFR helps international students find a home, complete essential
-            steps and settle confidently into life in Bordeaux.
+            TaupeFR helps international students see what matters now, what to
+            do next and where to do it, from preparing to move to settling into
+            life in Bordeaux.
+          </p>
+          <p className="scope-note">
+            TaupeFR is an independent guide and a prototype. It links to
+            official services and housing platforms; it doesn&rsquo;t replace
+            them or promise any outcome.
           </p>
           <div className="actions">
-            <Button onClick={() => nav("journey")}>Start your journey</Button>
+            {saved && !situation ? (
+              <Button
+                onClick={() => {
+                  setSituation(saved.situation);
+                  setDone(saved.done);
+                  nav("dashboard");
+                }}
+              >
+                Continue
+                {saved.situation.name ? ` as ${saved.situation.name}` : ""}
+              </Button>
+            ) : null}
             <Button
-              quiet
-              onClick={() => {
-                setDemo(true);
-                moveDemo(1);
-              }}
+              quiet={Boolean(saved && !situation)}
+              onClick={() => startProfile("new")}
             >
-              View student journey
+              {saved && !situation ? "Start again" : "Start your journey"}
+            </Button>
+            <Button quiet onClick={() => nav("demo")}>
+              Try a sample student
             </Button>
           </div>
         </section>
@@ -351,1285 +207,259 @@ export default function Home() {
         </div>
       </main>
     );
-  if (view === "journey")
+  if (view === "demo")
     return (
-      <main className="journey">
-        <Logo />
-        <section>
-          <p className="eyebrow">Your path, made clear</p>
-          <h1>
-            Every international student
-            <br />
-            follows a journey.
-          </h1>
-          <p className="lede">
-            We guide you one step at a time—from your admission letter to
-            feeling at home in Bordeaux.
-          </p>
-          <Button onClick={() => nav("profile")}>Start my journey</Button>
-        </section>
-        <ol>
-          {stages.map((x, i) => (
-            <li key={x}>
-              <span>{i + 1}</span>
-              <b>{x}</b>
-              <small>
-                {
-                  [
-                    "You’re accepted",
-                    "Find a safe place",
-                    "Land with confidence",
-                    "Get the essentials done",
-                    "Make it yours",
-                    "Meet your people",
-                    "Feel at home",
-                  ][i]
-                }
-              </small>
-            </li>
-          ))}
-        </ol>
-      </main>
+      <DemoPicker
+        logo={<Logo />}
+        onPick={startDemo}
+        onBack={() => nav("welcome")}
+      />
     );
-  if (view === "profile") {
-    let [q, options] = questions[step],
-      value = answers[q];
+  if (view === "profile")
     return (
-      <main className="onboard">
-        <header>
-          <Logo />
-          <b>
-            Step {step + 1} of {questions.length}
-          </b>
-          <div className="bar">
-            <i style={{ width: `${((step + 1) / questions.length) * 100}%` }} />
-          </div>
-        </header>
-        <section>
-          <p className="eyebrow">Let’s make this personal</p>
-          <h1>{q}</h1>
-          <p>
-            Choose the option that best fits your situation. You can always
-            change it later.
-          </p>
-          <div className="choices">
-            {options.map((o) => (
-              <button
-                onClick={() => setAnswers((a) => ({ ...a, [q]: o }))}
-                className={value === o ? "selected" : ""}
-                key={o}
-              >
-                {value === o ? "✓" : "○"} <span>{o}</span>
-              </button>
-            ))}
-          </div>
-          <footer>
-            <button className="plain" onClick={() => step && setStep(step - 1)}>
-              ← Back
-            </button>
-            <button
-              disabled={!value}
-              onClick={() =>
-                step === questions.length - 1
-                  ? nav("dashboard")
-                  : setStep(step + 1)
-              }
-            >
-              Continue →
-            </button>
-          </footer>
-        </section>
-        {demo && (
-          <DemoControls
-            stage={demoStage}
-            move={moveDemo}
-            onExit={() => setDemo(false)}
-          />
-        )}
-      </main>
+      <>
+        <Profile
+          key={profileMode}
+          initial={profileMode === "update" ? situation : null}
+          mode={profileMode}
+          logo={<Logo />}
+          onDone={(next) => {
+            if (profileMode === "new") setDone([]);
+            setSituation(next);
+            setNotice(
+              profileMode === "update"
+                ? `Situation saved. You’re in ${stageLabel(getStage(next))}.`
+                : null,
+            );
+            nav("dashboard");
+          }}
+          onCancel={() =>
+            nav(profileMode === "update" ? "dashboard" : "welcome")
+          }
+        />
+        {demoBar}
+      </>
     );
-  }
   if (view === "found")
     return (
       <>
         <Celebrate
           home
           onNext={() => {
-            finish("Accommodation");
-            nav("admin");
+            setSituation((x) => (x ? { ...x, accommodation: "secured" } : x));
+            nav("dashboard");
           }}
         />
-        {demo && (
-          <DemoControls
-            stage={demoStage}
-            move={moveDemo}
-            onExit={() => setDemo(false)}
-          />
-        )}
+        {demoBar}
       </>
     );
   if (view === "settled")
     return (
       <>
         <Celebrate onNext={() => nav("dashboard")} />
-        {demo && (
-          <DemoControls
-            stage={demoStage}
-            move={moveDemo}
-            onExit={() => setDemo(false)}
-          />
-        )}
+        {demoBar}
       </>
     );
   return (
     <>
-      <Shell view={view} nav={nav} done={done}>
-        {view === "dashboard" && (
-          <Dashboard done={done} nav={nav} answers={answers} />
-        )}{" "}
-        {view === "housing" && (
-          <Housing picked={home} choose={setHome} next={() => nav("found")} />
-        )}{" "}
-        {view === "admin" && (
-          <Admin
-            done={done}
-            finish={finish}
-            nav={nav}
-            demoGuide={demo && demoStage === 6 ? "CAF housing aid" : undefined}
+      <Shell
+        view={view}
+        nav={nav}
+        plan={plan}
+        name={situation?.name}
+        demo={Boolean(demo)}
+      >
+        {notice && view === "dashboard" && (
+          <p className="notice" role="status">
+            {notice}
+            <button className="plain" onClick={() => setNotice(null)}>
+              Close
+            </button>
+          </p>
+        )}
+        {view === "dashboard" && situation && plan && (
+          <Dashboard
+            situation={situation}
+            plan={plan}
+            onUpdate={() => startProfile("update")}
+            onToggleDone={toggleDone}
+            onAsk={setAsking}
+            onGuide={setGuideId}
           />
         )}{" "}
-        {view === "market" && <Market finish={finish} nav={nav} />}{" "}
-        {view === "community" && <Community finish={finish} nav={nav} />}
+        {view === "housing" && (
+          <Housing
+            secured={situation?.accommodation === "secured"}
+            onSecured={() => setAsking("accommodation_secured")}
+          />
+        )}{" "}
+        {view === "market" && <Market nav={nav} />}{" "}
+        {view === "community" && (
+          <Community
+            canConfirmSettled={Boolean(
+              situation?.location === "in_bordeaux" && !situation.settled,
+            )}
+            onSettled={() => setAsking("feel_settled")}
+          />
+        )}
       </Shell>
-      {demo && (
-        <DemoControls
-          stage={demoStage}
-          move={moveDemo}
-          onExit={() => setDemo(false)}
+      <Assistant situation={situation} plan={plan} done={done} />
+      {guide && situation && (
+        <TaskGuide
+          key={guide.id}
+          task={guide}
+          situation={situation}
+          next={guideNext}
+          onClose={() => setGuideId(null)}
+          onDone={(id) => {
+            toggleDone(id);
+            setGuideId(null);
+          }}
+          onAsk={(id) => {
+            setGuideId(null);
+            setAsking(id);
+          }}
+          onOpenNext={setGuideId}
+          onOpenPlace={(p) => {
+            setGuideId(null);
+            nav(p);
+          }}
         />
       )}
+      {asking && (
+        <ConfirmMilestone
+          id={asking}
+          onYes={() => answer(true)}
+          onNo={() => answer(false)}
+        />
+      )}
+      {demoBar}
     </>
-  );
-}
-function DemoControls({
-  stage,
-  move,
-  onExit,
-}: {
-  stage: number;
-  move: (delta: number) => void;
-  onExit: () => void;
-}) {
-  const names = [
-    "Welcome",
-    "Student profile",
-    "Personal plan",
-    "Housing",
-    "Housing secured",
-    "Administration",
-    "CAF guide",
-    "Marketplace",
-    "Community",
-    "Settled",
-  ];
-  return (
-    <div className="demo-controls">
-      <span>
-        Student journey · {stage + 1}/10 · {names[stage]}
-      </span>
-      <div>
-        <button onClick={() => move(-1)} disabled={!stage}>
-          ← Previous
-        </button>
-        <button onClick={onExit}>Exit</button>
-        <button onClick={() => move(1)} disabled={stage === 9}>
-          Next →
-        </button>
-      </div>
-    </div>
   );
 }
 function Shell({
   view,
   nav,
-  done,
+  plan,
+  name,
+  demo,
   children,
 }: {
   view: View;
   nav: (v: View) => void;
-  done: string[];
+  plan: Plan | null;
+  name?: string;
+  demo: boolean;
   children: React.ReactNode;
 }) {
-  let links: [View, string, string][] = [
-    ["dashboard", "⌂", "My journey"],
-    ["housing", "⌂", "Find housing"],
-    ["admin", "✓", "Administration"],
-    ["market", "▦", "Marketplace"],
-    ["community", "◉", "Community"],
-  ];
+  // No menu of stages or sections: everything starts from the plan, and
+  // other screens are reached from the task that needs them.
   return (
     <main className="app">
       <aside>
         <Logo />
-        <div className="avatar">E</div>
         <b className="name">
-          Emmanuel<small>University of Bordeaux</small>
+          {name ? `Hi ${name}` : "Hi there"}
+          <small>
+            {demo
+              ? "Sample student · not saved"
+              : "Prototype · saved in this browser"}
+          </small>
         </b>
         <nav>
-          {links.map(([v, i, n]) => (
-            <button
-              onClick={() => nav(v)}
-              className={view === v ? "active" : ""}
-              key={v}
-            >
-              <span>{i}</span>
-              {n}
-            </button>
-          ))}
+          <button
+            onClick={() => nav("dashboard")}
+            className={view === "dashboard" ? "active" : ""}
+          >
+            <span>⌂</span>
+            {view === "dashboard" ? "My plan" : "Back to my plan"}
+          </button>
         </nav>
-        <div className="mini">
-          <small>Your journey</small>
-          <b>{Math.round((done.length / 8) * 100)}% complete</b>
-          <div>
-            <i style={{ width: `${Math.round((done.length / 8) * 100)}%` }} />
+        {plan && plan.stage !== 0 && (
+          <div className="mini">
+            <small>Stage {plan.stage} of 5</small>
+            <b>
+              {plan.progress.done} of {plan.progress.total} done
+            </b>
           </div>
-        </div>
-        <button className="help">? Need help?</button>
+        )}
+        <button
+          className="help"
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent("taupe-context", { detail: {} }),
+            )
+          }
+        >
+          ? Need help?
+        </button>
       </aside>
       <section className="content">{children}</section>
-      <GlobalAssistant
-        context={
-          view === "dashboard" ? "Dashboard" : "your current TaupeFR step"
-        }
-      />
     </main>
   );
 }
-type AssistantContext = {
-  service: string;
-  task: string;
-  step?: string;
-  stage: "Administration" | "Dashboard";
-};
-function GlobalAssistant({ context }: { context: string }) {
-  const defaultContext: AssistantContext = {
-    service: context === "Dashboard" ? "TaupeFR" : "TaupeFR",
-    task: context === "Dashboard" ? "Dashboard" : "Your journey",
-    stage: context === "Dashboard" ? "Dashboard" : "Administration",
-  };
-  const [open, setOpen] = useState(false),
-    [text, setText] = useState(""),
-    [active, setActive] = useState<AssistantContext>(defaultContext),
-    [history, setHistory] = useState<Record<string, string>>({});
-  const contextKey = `${active.service}|${active.task}|${active.step || "overview"}`;
-  const choice = history[contextKey] || null;
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<AssistantContext | string>).detail;
-      setActive(
-        typeof detail === "string"
-          ? { service: "TaupeFR", task: detail, stage: "Administration" }
-          : detail,
-      );
-      setOpen(true);
-    };
-    window.addEventListener("taupe-context", handler);
-    return () => window.removeEventListener("taupe-context", handler);
-  }, []);
-  useEffect(() => {
-    if (!open) setActive(defaultContext);
-  }, [context, open]);
-  const step = active.step || "this step";
-  const config = active.service === "CAF"
-    ? {
-        opening: `You’re working on CAF → ${step}. What are you stuck on?`,
-        quick: step === "Enter your housing information"
-          ? [
-              "I don’t understand a field",
-              "Where is this on my lease?",
-              "I’m missing information",
-              "Ask something else",
-            ]
-          : [
-              "I can’t find the right option",
-              "I’m missing a document",
-              "The website is in French",
-              "Ask something else",
-            ],
-      }
-    : active.service === "French Health Insurance"
-      ? {
-          opening: `You’re registering for French Health Insurance → ${step}. What do you need help with?`,
-          quick: [
-            "Which documents do I need?",
-            "I’m missing a document",
-            "I don’t understand a requirement",
-            "I received a message",
-          ],
-        }
-      : active.service === "Residence Permit"
-        ? {
-            opening: `You’re working on your Residence Permit → ${step}. What do you need help understanding?`,
-            quick: [
-              "I received a message",
-              "I’m missing a document",
-              "Explain a French term",
-              "What should I do next?",
-            ],
-          }
-        : active.service === "French Bank Account"
-          ? {
-              opening:
-                "You’re choosing a French bank account. What matters most to you?",
-              quick: [
-                "Lowest cost",
-                "Easy online opening",
-                "English-friendly",
-                "Branch access",
-              ],
-            }
-          : active.service === "French SIM Card"
-            ? {
-                opening:
-                  "You’re choosing a French mobile plan. What matters most?",
-                quick: [
-                  "Lowest monthly cost",
-                  "Lots of data",
-                  "eSIM",
-                  "No long contract",
-                ],
-              }
-            : {
-                opening: "Hi. What would you like help getting done?",
-                quick: [
-                  "Find a home",
-                  "What should I do next?",
-                  "Administrative help",
-                  "Understand a document",
-                  "Something else",
-                ],
-              };
-  const answer =
-    choice === "What should I do next?"
-      ? "Start with the action marked Next on your journey. TaupeFR unlocks the rest in order."
-      : choice === "Where is this on my lease?"
-        ? "Look for the address, move-in date, rent information and landlord or residence details. Use the wording exactly as it appears on your agreement."
-        : choice === "I can’t find the right option"
-          ? "TaupeFR can explain what the service is asking for, but the official site remains the source for its current routes and labels."
-        : choice
-          ? "I can help you understand the process and prepare the right information. I cannot make an eligibility or administrative decision for you."
-          : "";
-  return (
-    <>
-      <button className="ask-taupe" onClick={() => setOpen(true)}>
-        ✦ <span>Ask Taupe</span>
-      </button>
-      {open && (
-        <section className="taupe-drawer">
-          <header>
-            <div>
-              <b>Taupe Assistant</b>
-              <small>
-                Here to help · {active.service} → {active.task}
-                {active.step ? ` → ${active.step}` : ""}
-              </small>
-            </div>
-            <div className="languages">EN　FR　中文　ES</div>
-            <button onClick={() => setOpen(false)}>×</button>
-          </header>
-          <div className="taupe-body">
-            <p>{config.opening}</p>
-            {!choice ? (
-              <div className="taupe-quick">
-                {config.quick.map((x) => (
-                  <button
-                    key={x}
-                    onClick={() =>
-                      setHistory((current) => ({ ...current, [contextKey]: x }))
-                    }
-                  >
-                    {x}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="student-msg">{choice}</div>
-                <div className="taupe-msg">{answer}</div>
-                <div className="visual-placeholder">
-                  <b>See what to look for</b>
-                  <span>TaupeFR verified visual guide will appear here.</span>
-                </div>
-                <div className="taupe-quick">
-                  <button
-                    onClick={() =>
-                      setHistory((current) => {
-                        const next = { ...current };
-                        delete next[contextKey];
-                        return next;
-                      })
-                    }
-                  >
-                    Choose another question
-                  </button>
-                  <button onClick={() => setOpen(false)}>Back to guide</button>
-                </div>
-              </>
-            )}
-          </div>
-          <footer>
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Ask Taupe…"
-            />
-            <button
-              onClick={() => {
-                if (text) {
-                  setHistory((current) => ({ ...current, [contextKey]: text }));
-                  setText("");
-                }
-              }}
-            >
-              ↑
-            </button>
-          </footer>
-          <small>
-            TaupeFR explains the process. Official requirements and decisions
-            remain with the relevant authority.
-          </small>
-        </section>
-      )}
-    </>
-  );
-}
-function Heading({
-  stage,
-  title,
-  copy,
-}: {
-  stage: string;
-  title: string;
-  copy: string;
-}) {
-  return (
-    <header className="heading">
-      <div>
-        <p className="eyebrow">{stage}</p>
-        <h1>{title}</h1>
-        <p>{copy}</p>
-      </div>
-      <button>⌁</button>
-    </header>
-  );
-}
-function Dashboard({
-  done,
-  nav,
-  answers,
-}: {
-  done: string[];
-  nav: (v: View) => void;
-  answers: Record<string, string>;
-}) {
-  const housed = done.includes("Accommodation"),
-    essentials = tasks.filter((t) => done.includes(t.name)).length;
-  const next = housed ? "Set up your essentials" : "Find accommodation";
-  const nextCopy = housed
-    ? "Your address now unlocks your French SIM, bank account and health registration."
-    : "Housing unlocks several of your next administrative steps. Secure your address before you arrive.";
-  const pct = housed ? Math.min(82, 38 + essentials * 10) : 42;
-  const journey = [
-    ["Accepted", true],
-    ["Prepare", true],
-    ["Find housing", !housed],
-    ["Arrive", false],
-    ["Set up essentials", false],
-    ["Make your home", false],
-    ["Meet your community", false],
-    ["Settled", false],
-  ];
-  return (
-    <>
-      <Heading
-        stage="Your journey to Bordeaux"
-        title="Good morning, Emmanuel"
-        copy={`University of Bordeaux · ${answers["When do you arrive?"] || "September 2026"} · ${answers["What is your monthly housing budget?"] || "Your budget saved"}`}
-      />
-      <section className="journey-engine">
-        <div className="journey-rail">
-          {journey.map(([name, current], i) => (
-            <div
-              className={
-                current
-                  ? done.includes("Accommodation") && i < 3
-                    ? "passed"
-                    : "current"
-                  : i < 2
-                    ? "passed"
-                    : "locked"
-              }
-              key={name}
-            >
-              <span>
-                {i < 2 || (done.includes("Accommodation") && i === 2)
-                  ? "✓"
-                  : current
-                    ? "→"
-                    : "○"}
-              </span>
-              <b>{name}</b>
-              <small>
-                {i === 2 && !housed
-                  ? "Current"
-                  : i < 2
-                    ? "Complete"
-                    : i === 3
-                      ? "Upcoming"
-                      : ""}
-              </small>
-            </div>
-          ))}
-        </div>
-        <div className="readiness">
-          <p className="eyebrow">Bordeaux readiness</p>
-          <strong>{pct}%</strong>
-          <p>
-            You’re building a confident arrival, one essential decision at a
-            time.
-          </p>
-          <div>
-            <i style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-      </section>
-      <section className="journey-next">
-        <div>
-          <p className="eyebrow">Next recommended action</p>
-          <h2>{next}</h2>
-          <p>{nextCopy}</p>
-          <Button onClick={() => nav(housed ? "admin" : "housing")}>
-            Continue my journey
-          </Button>
-        </div>
-        <aside>
-          <p className="eyebrow">Personalised for you</p>
-          <b>
-            {answers["What feels right for you?"] || "Student housing"} ·{" "}
-            {answers["Where will you study?"] || "University of Bordeaux"}
-          </b>
-          <small>
-            {answers["A little more about your move?"] ||
-              "Support preferences saved"}
-          </small>
-        </aside>
-      </section>
-      <section className="smart-order">
-        <div>
-          <p className="eyebrow">Your smart order</p>
-          <h2>Only what matters now.</h2>
-        </div>
-        <div className="order-columns">
-          <article>
-            <small>Next</small>
-            <b>{housed ? "French SIM card" : "Find housing"}</b>
-            <span>
-              {housed
-                ? "Your number helps with bank and housing steps."
-                : "You’ll need your address for several later steps."}
-            </span>
-          </article>
-          <article>
-            <small>Coming up</small>
-            <b>
-              {housed
-                ? "Bank account · Health insurance"
-                : "Arrival preparation"}
-            </b>
-            <span>
-              {housed
-                ? "Complete these after your SIM is sorted."
-                : "Your essentials unlock once your home is confirmed."}
-            </span>
-          </article>
-          <article>
-            <small>Later</small>
-            <b>CAF · Marketplace · Community</b>
-            <span>
-              These become relevant once your essentials are in place.
-            </span>
-          </article>
-        </div>
-      </section>
-    </>
-  );
-}
 function Housing({
-  picked,
-  choose,
-  next,
+  secured,
+  onSecured,
 }: {
-  picked: number | null;
-  choose: (n: number) => void;
-  next: () => void;
+  secured: boolean;
+  onSecured: () => void;
 }) {
   return (
     <>
       <Heading
-        stage="Stage 2 · Accommodation"
+        stage="Housing"
         title="Let’s find your home."
-        copy="Every option is checked before you see it."
+        copy="Housing is offered by CROUS and other platforms. TaupeFR helps you search safely; it doesn’t list, check or rent homes."
       />
-      <div className="pills">
-        <button>All homes⌄</button>
-        <button>€450 – €650⌄</button>
-        <button>Furnished⌄</button>
-        <button>Near campus⌄</button>
-      </div>
-      <section className="housing">
-        <div>
-          <div className="alert">
-            <b>⚠ Your safety matters</b>
-            <span>
-              Never pay before a verified viewing. We flag common scam patterns
-              for you.
-            </span>
-          </div>
-          <p className="results">12 verified matches for you</p>
-          {homes.map((h, i) => (
-            <article
-              className={"home " + (picked === i ? "picked" : "")}
-              key={h[0]}
-            >
-              <div className={"image im" + i}>⌂</div>
-              <div>
-                <p>{h[0]}</p>
-                <h3>{h[1]}</h3>
-                <small>{h[3]} · Verified host</small>
-                <b>{h[2]}</b>
-              </div>
-              <button onClick={() => choose(i)}>
-                {picked === i ? "Selected ✓" : "View home →"}
-              </button>
-            </article>
-          ))}
-          <button disabled={picked === null} onClick={next} className="wide">
-            I found my home →
-          </button>
+      <section className="housing-guide">
+        <div className="alert">
+          <b>⚠ Avoid housing scams</b>
+          <span>
+            Be careful with any offer that asks for money before you have seen
+            the place (or someone you trust has) and signed a lease. Be wary of
+            prices far below the area, pressure to decide fast, or requests to
+            pay by money transfer.
+          </span>
         </div>
-        <div className="map">
-          <label className="u">
-            University
-            <br />
-            of Bordeaux
-          </label>
-          <label className="t">Talence</label>
-          <label className="p">Pessac</label>
-          <i className="x">€</i>
-          <i className="y">€</i>
-          <i className="z">€</i>
-          <small>Map preview · Bordeaux</small>
-        </div>
-      </section>
-      <section className="banner">
-        <div>
-          <p className="eyebrow">Roommate matching</p>
-          <h2>Live with people who get you.</h2>
-          <p>See compatible student profiles once your home is confirmed.</p>
-        </div>
-        <button
-          onClick={() =>
-            alert("Roommate matching opens after you choose housing.")
-          }
-        >
-          Explore matches →
-        </button>
-      </section>
-    </>
-  );
-}
-function Admin({
-  done,
-  finish,
-  nav,
-  demoGuide,
-}: {
-  done: string[];
-  finish: (x: string) => void;
-  nav: (v: View) => void;
-  demoGuide?: string;
-}) {
-  const [guide, setGuide] = useState<string | null>(null);
-  useEffect(() => {
-    if (demoGuide) setGuide(demoGuide);
-  }, [demoGuide]);
-  const completed = done.filter((x) => tasks.some((t) => t.name === x)).length;
-  const next = tasks.find((t) => !done.includes(t.name)) ?? tasks[0];
-  return (
-    <>
-      <Heading
-        stage="Stage 3 · Administration"
-        title="The essentials, made simple."
-        copy="Clear actions for the important things you need to do after arrival."
-      />
-      <section className="admin-action-system">
-        <div className="next-action">
-          <p className="eyebrow">Your next step</p>
-          <span className="next-number">01</span>
-          <h2>Get your French SIM card</h2>
-          <p className="why">
-            <b>Why now?</b> A French phone number will make it easier to
-            complete your bank, housing and administrative procedures.
-          </p>
-          <div className="next-meta">
-            <span>
-              ◷ Estimated time <b>10 min</b>
-            </span>
-            <span>○ Not started</span>
-          </div>
-          <Button onClick={() => setGuide("French SIM card")}>
-            Start this step
-          </Button>
-        </div>
-        <div className="setup-progress">
-          <p className="eyebrow">Your setup progress</p>
-          <strong>{completed} of 5 essential tasks completed</strong>
-          <div className="setup-bar">
-            <i style={{ width: `${(completed / 5) * 100}%` }} />
-          </div>
-          <small>
-            Complete one task at a time. You’re making real progress.
-          </small>
-        </div>
-      </section>
-      <div className="admin-list-heading">
-        <div>
-          <p className="eyebrow">Remaining tasks</p>
-          <h2>What comes next, in order.</h2>
-        </div>
-        <small>{5 - completed} still to do</small>
-      </div>
-      <section className="admin">
-        {tasks.map((task, index) => {
-          const isDone = done.includes(task.name);
-          const isNext = task.name === next.name;
-          return (
-            <article
-              className={
-                (isDone ? "complete " : "") + (isNext ? "next-card" : "")
-              }
-              key={task.name}
-            >
-              <header>
-                <span className="status">
-                  <b>{isDone ? "✓" : isNext ? "→" : "○"}</b>
-                  {isDone
-                    ? "Completed"
-                    : isNext
-                      ? "Recommended next"
-                      : "Not started"}
-                </span>
-                <small>◷ {task.time}</small>
-              </header>
-              <h3>{task.name}</h3>
-              <p>{task.why}</p>
-              <div className="need-list">
-                <small>You’ll need</small>
-                <ul>
-                  {task.needs.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-              <footer>
-                <button onClick={() => setGuide(task.name)}>
-                  {isDone ? "View guide" : "Start step-by-step guide"}
-                </button>
-                <a target="_blank" href={task.official}>
-                  Official source ↗
+        <p className="sample-label">
+          Where students often search · links to be checked
+        </p>
+        <div className="housing-options">
+          {housingPlatforms.map((h) => (
+            <article key={h.name}>
+              <h3>{h.name}</h3>
+              <p>{h.copy}</p>
+              {h.url && (
+                <a href={h.url} target="_blank" rel="noreferrer">
+                  Open {h.name} ↗
                 </a>
-              </footer>
+              )}
+              <small>Last checked: to be confirmed</small>
             </article>
-          );
-        })}
-      </section>
-      <section className="banner">
-        <div>
-          <p className="eyebrow">
-            {completed >= 3 ? "The essentials are done ✓" : "When you’re ready"}
-          </p>
-          <h2>
-            {completed >= 3
-              ? "Next: make your new place yours."
-              : "Make your new place yours."}
-          </h2>
+          ))}
+        </div>
+        <div className="landlord-docs">
+          <p className="eyebrow">What landlords usually ask for</p>
           <p>
-            {completed >= 3
-              ? "Your core arrival tasks are moving forward. Choose the few things that make your room feel like home."
-              : "Marketplace unlocks naturally once your essential setup is underway."}
+            Often: an ID document, proof of studies, proof of income or funds,
+            and a guarantor. Requirements vary between landlords and platforms.
+            Guarantor schemes such as Visale exist; check whether you are
+            eligible on the official site.
           </p>
         </div>
-        <Button onClick={() => nav("market")}>Browse marketplace</Button>
+        {!secured && (
+          <button onClick={onSecured} className="wide button">
+            I’ve secured a place <span>→</span>
+          </button>
+        )}
       </section>
-      {guide && (
-        <TaskGuide
-          task={tasks.find((t) => t.name === guide)!}
-          content={guideContent[guide]}
-          onClose={() => setGuide(null)}
-          onComplete={() => {
-            finish(guide);
-            setGuide(null);
-          }}
-        />
-      )}
     </>
   );
 }
-function TaskGuide({
-  task,
-  content,
-  onClose,
-  onComplete,
-}: {
-  task: (typeof tasks)[number];
-  content: (typeof guideContent)[string];
-  onClose: () => void;
-  onComplete: () => void;
-}) {
-  if (task.name === "CAF housing aid")
-    return <CAFGuide task={task} onClose={onClose} onComplete={onComplete} />;
-  return (
-    <EssentialGuide
-      task={task}
-      content={content}
-      onClose={onClose}
-      onComplete={onComplete}
-    />
-  );
-}
-function EssentialGuide({
-  task,
-  content,
-  onClose,
-  onComplete,
-}: {
-  task: (typeof tasks)[number];
-  content: (typeof guideContent)[string];
-  onClose: () => void;
-  onComplete: () => void;
-}) {
-  const [open, setOpen] = useState<number | null>(null),
-    commercial = ["Bank account", "French SIM card"].includes(task.name);
-  const title =
-    task.name === "Health insurance"
-      ? "Register for French Health Insurance"
-      : task.name === "Residence permit"
-        ? "Manage your student residence permit"
-        : content.title;
-  const assistantService =
-    task.name === "Health insurance"
-      ? "French Health Insurance"
-      : task.name === "Residence permit"
-        ? "Residence Permit"
-        : task.name === "Bank account"
-          ? "French Bank Account"
-          : "French SIM Card";
-  const intro =
-    task.name === "Health insurance"
-      ? "Eligible international students may need to register with the French health-insurance system so healthcare costs can be reimbursed according to the applicable rules."
-      : task.name === "Residence permit"
-        ? "Depending on your nationality and immigration status, you may need to validate, renew or manage your right to stay in France through the appropriate official procedure."
-        : task.name === "Bank account"
-          ? "A French bank account can make it easier to receive payments, manage everyday expenses and use services that require French bank details."
-          : "A French phone number can make everyday communication and some local services easier after you arrive.";
-  return (
-    <div className="guide-backdrop">
-      <aside className="task-guide caf-guide">
-        <header>
-          <div>
-            <p className="eyebrow">
-              TaupeFR guide ·{" "}
-              {commercial ? "Commercial choice" : "Official guidance"}
-            </p>
-            <h2>{title}</h2>
-            <p>{intro}</p>
-          </div>
-          <button onClick={onClose}>×</button>
-        </header>
-        <div className="caf-meta">
-          <span>
-            <b>Estimated time</b>
-            {task.time}
-          </span>
-          <span>
-            <b>Difficulty</b>Medium
-          </span>
-          <span>
-            <b>Service type</b>
-            {commercial ? "Commercial" : "Official"}
-          </span>
-          <span>
-            <b>Information reviewed</b>August 2026
-          </span>
-        </div>
-        <section className="guide-why">
-          <p className="eyebrow">Why this matters</p>
-          <p>
-            {content.why}
-            {!commercial &&
-              " TaupeFR explains the process; the relevant French authority remains responsible for registration and decisions."}
-          </p>
-        </section>
-        <section className="before">
-          <p className="eyebrow">Before you start</p>
-          {task.needs.map((x) => (
-            <label key={x}>
-              <input type="checkbox" /> <span>{x}</span>
-            </label>
-          ))}
-          <small>
-            {commercial
-              ? "Requirements vary between providers."
-              : "Required documents can vary depending on nationality and personal situation."}
-          </small>
-        </section>
-        <section className="caf-steps">
-          <p className="eyebrow">
-            Your process in {content.steps.length} steps
-          </p>
-          {content.steps.map((s, i) => (
-            <article key={s.title}>
-              <div>
-                <b>0{i + 1}</b>
-                <span>
-                  <strong>{s.title}</strong>
-                  <small>{s.copy}</small>
-                </span>
-                <button onClick={() => setOpen(open === i ? null : i)}>
-                  {open === i ? "Hide details" : "Show me how"}
-                </button>
-              </div>
-              {open === i && (
-                <section>
-                  <p>
-                    {s.title === "Prepare your documents"
-                      ? "Check each document is readable, current and consistent with your passport and student records."
-                      : s.copy +
-                        " Follow the provider or official service instructions for your individual situation."}
-                  </p>
-                  <div className="visual-placeholder">
-                    <b>See what to look for</b>
-                    <span>
-                      TaupeFR verified visual walkthrough will appear here.
-                    </span>
-                  </div>
-                  <button
-                    className="ask-step"
-                    onClick={() =>
-                      window.dispatchEvent(
-                        new CustomEvent("taupe-context", {
-                          detail: {
-                            service: assistantService,
-                            task: title,
-                            step: s.title,
-                            stage: "Administration",
-                          },
-                        }),
-                      )
-                    }
-                  >
-                    Ask Taupe about this step
-                  </button>
-                </section>
-              )}
-            </article>
-          ))}
-        </section>
-        {commercial && (
-          <section className="compare">
-            <p className="eyebrow">
-              Compare student{" "}
-              {task.name === "Bank account" ? "banking" : "mobile"} options
-            </p>
-            {[
-              "Option A · Digital account",
-              "Option B · Traditional provider",
-              "Option C · International-friendly",
-            ].map((x, i) => (
-              <article key={x}>
-                <b>{x}</b>
-                <small>
-                  {i === 0
-                    ? "Online setup · cost and language access"
-                    : i === 1
-                      ? "Branch access · student offers may be available"
-                      : "Online onboarding · international features"}
-                </small>
-              </article>
-            ))}
-            <em>
-              Recommendations should use clear student-focused criteria. Partner
-              relationships and referral commissions, where used, will be
-              clearly disclosed.
-            </em>
-            <button>
-              Compare {task.name === "Bank account" ? "banking" : "mobile"}{" "}
-              options
-            </button>
-          </section>
-        )}
-        <section className="ready">
-          <p className="eyebrow">
-            {commercial ? "Ready to compare?" : "Official action"}
-          </p>
-          <h3>
-            {commercial
-              ? "Choose the criteria that matter to you."
-              : "You now know what to prepare and what to expect."}
-          </h3>
-          <a href={task.official} target="_blank">
-            {commercial
-              ? "Explore provider options ↗"
-              : "Open official source ↗"}
-          </a>
-          <button
-            onClick={() =>
-              window.dispatchEvent(
-                new CustomEvent("taupe-context", {
-                  detail: {
-                    service: assistantService,
-                    task: title,
-                    stage: "Administration",
-                  },
-                }),
-              )
-            }
-          >
-            Ask Taupe
-          </button>
-          <small>
-            {commercial
-              ? "TaupeFR helps students compare providers; the student chooses a provider directly."
-              : "You complete your registration with the relevant French authority. TaupeFR provides practical guidance only."}
-          </small>
-        </section>
-        <button className="mark-caf" onClick={onComplete}>
-          Mark {task.name} as completed
-        </button>
-      </aside>
-    </div>
-  );
-}
-function CAFGuide({
-  task,
-  onClose,
-  onComplete,
-}: {
-  task: (typeof tasks)[number];
-  onClose: () => void;
-  onComplete: () => void;
-}) {
-  const [open, setOpen] = useState<number | null>(null),
-    [complete, setComplete] = useState(false),
-    [lease, setLease] = useState(false);
-  const steps = [
-    [
-      "Access CAF",
-      "Use the official CAF service to begin or access your application.",
-      "Open the official CAF service and look for the account or application area. If you already have access, sign in. If not, follow the route CAF presents to begin.",
-    ],
-    [
-      "Start your housing-aid request",
-      "Choose the housing-assistance process that corresponds to your situation.",
-      "You are starting a housing-aid request. Look for wording about housing assistance that matches your situation; avoid guessing a route if you are unsure.",
-    ],
-    [
-      "Enter your housing information",
-      "Use the information from your rental agreement, including your address and housing details.",
-      "Keep your rental agreement beside you. Enter details exactly as written: housing address, move-in date, rent, and landlord or residence details where requested.",
-    ],
-    [
-      "Provide the requested personal information",
-      "Complete the identity, residence and banking information requested for your situation.",
-      "Prepare your identity, residence and banking information. CAF may ask for different fields depending on your situation, so complete only what is requested.",
-    ],
-    [
-      "Review, submit and track",
-      "Check your information carefully, submit the request and keep track of messages or additional-document requests from CAF.",
-      "Before submitting, compare key dates and rent information with your documents. Save your confirmation or reference, then keep checking your CAF account and messages for updates.",
-    ],
-  ];
-  return (
-    <div className="guide-backdrop">
-      <aside className="task-guide caf-guide">
-        <header>
-          <div>
-            <p className="eyebrow">TaupeFR guide</p>
-            <h2>Apply for CAF housing assistance</h2>
-            <p>
-              CAF housing assistance may help eligible students reduce part of
-              their monthly housing cost while living in France.
-            </p>
-          </div>
-          <button onClick={onClose}>×</button>
-        </header>
-        <div className="caf-meta">
-          <span>
-            <b>Estimated time</b>20–30 min
-          </span>
-          <span>
-            <b>Difficulty</b>Medium
-          </span>
-          <span>
-            <b>Official service</b>CAF
-          </span>
-          <span>
-            <b>Information reviewed</b>August 2026
-          </span>
-        </div>
-        <section className="guide-why">
-          <p className="eyebrow">Why this matters</p>
-          <p>
-            CAF may reduce part of your rent costs. TaupeFR simplifies the
-            process, but CAF remains the official authority for eligibility,
-            applications and decisions.
-          </p>
-        </section>
-        <section className="before">
-          <p className="eyebrow">Before you start</p>
-          {[
-            "Identity document",
-            "Rental agreement / housing information",
-            "French bank details (RIB), where required",
-            "Residence documentation, where applicable",
-          ].map((x) => (
-            <label key={x}>
-              <input type="checkbox" /> <span>{x}</span>
-            </label>
-          ))}
-          <small>
-            Requirements can vary depending on your situation. Taupe Assistant
-            can help you understand what applies to you.
-          </small>
-        </section>
-        <section className="caf-steps">
-          <p className="eyebrow">Your CAF application in 5 steps</p>
-          {steps.map(([title, copy, how], i) => (
-            <article key={title}>
-              <div>
-                <b>0{i + 1}</b>
-                <span>
-                  <strong>{title}</strong>
-                  <small>{copy}</small>
-                </span>
-                <button onClick={() => setOpen(open === i ? null : i)}>
-                  {open === i ? "Hide details" : "Show me how"}
-                </button>
-              </div>
-              {open === i && (
-                <section>
-                  <p>{how}</p>
-                  <div className="visual-placeholder">
-                    <b>
-                      {i === 0
-                        ? "See what to look for"
-                        : "Verified visual guide"}
-                    </b>
-                    <span>TaupeFR visual walkthrough will appear here.</span>
-                  </div>
-                  {i === 2 && (
-                    <button
-                      className="ask-step"
-                      onClick={() => setLease(!lease)}
-                    >
-                      Where do I find this on my lease?
-                    </button>
-                  )}
-                  {lease && i === 2 && (
-                    <p className="lease-help">
-                      Look for the address, date your tenancy begins, monthly
-                      rent, and landlord or residence contact details. This is a
-                      prototype explanation, not a legal document.
-                    </p>
-                  )}
-                  <button
-                    className="ask-step"
-                    onClick={() =>
-                      window.dispatchEvent(
-                        new CustomEvent("taupe-context", {
-                          detail: {
-                            service: "CAF",
-                            task: "Housing Assistance",
-                            step: title,
-                            stage: "Administration",
-                          },
-                        }),
-                      )
-                    }
-                  >
-                    {i === 0
-                      ? "Having trouble finding the right place?"
-                      : i === 1
-                        ? "Not sure which option applies to you?"
-                        : i === 3
-                          ? "Confused by a French term or field?"
-                          : i === 4
-                            ? "What happens after I submit?"
-                            : "Ask Taupe about this step"}
-                  </button>
-                </section>
-              )}
-            </article>
-          ))}
-        </section>
-        <section className="ready">
-          <p className="eyebrow">Ready to start?</p>
-          <h3>You now know what to prepare and what to expect.</h3>
-          <a href={task.official} target="_blank">
-            Open official CAF website ↗
-          </a>
-          <button
-            onClick={() =>
-              window.dispatchEvent(
-                new CustomEvent("taupe-context", {
-                  detail: {
-                    service: "CAF",
-                    task: "Housing Assistance",
-                    stage: "Administration",
-                  },
-                }),
-              )
-            }
-          >
-            Ask Taupe Assistant
-          </button>
-          <small>
-            You complete your application directly with CAF. TaupeFR helps you
-            understand the process but does not submit or make decisions on
-            behalf of CAF.
-          </small>
-        </section>
-        <button
-          className="mark-caf"
-          onClick={() => {
-            setComplete(true);
-            onComplete();
-          }}
-        >
-          {complete ? "CAF marked as completed ✓" : "Mark CAF as completed"}
-        </button>
-      </aside>
-    </div>
-  );
-}
-function Market({
-  finish,
-  nav,
-}: {
-  finish: (x: string) => void;
-  nav: (v: View) => void;
-}) {
-  let goods = [
+function Market({ nav }: { nav: (v: View) => void }) {
+  const [saved, setSaved] = useState<string[]>([]);
+  const goods = [
     ["Desk & chair", "€35", "Talence", "▤"],
     ["Kitchen starter kit", "€18", "Bordeaux", "♨"],
     ["City bike", "€75", "Pessac", "♢"],
@@ -1638,18 +468,13 @@ function Market({
   return (
     <>
       <Heading
-        stage="Stage 4 · Your home"
+        stage="Marketplace"
         title="Settle into your new home."
-        copy="Useful things, circulating between students in Bordeaux."
+        copy="An idea we’re testing: students passing on useful things to the next students."
       />
-      <div className="pills">
-        <button className="chosen">All items</button>
-        <button>Furniture</button>
-        <button>Kitchen</button>
-        <button>Bike</button>
-        <button>Electronics</button>
-        <button>Books</button>
-      </div>
+      <p className="sample-label">
+        Sample listings, for demonstration. These items aren’t real.
+      </p>
       <section className="goods">
         {goods.map(([n, p, l, i]) => (
           <article key={n}>
@@ -1658,12 +483,9 @@ function Market({
             <h3>{n}</h3>
             <b>{p}</b>
             <button
-              onClick={() => {
-                finish("Furniture");
-                alert("Saved to your list.");
-              }}
+              onClick={() => setSaved((x) => (x.includes(n) ? x : [...x, n]))}
             >
-              Save item
+              {saved.includes(n) ? "Saved ✓" : "Save item"}
             </button>
           </article>
         ))}
@@ -1678,12 +500,7 @@ function Market({
             the next student.
           </h2>
         </div>
-        <button
-          onClick={() => {
-            finish("Furniture");
-            nav("community");
-          }}
-        >
+        <button onClick={() => nav("community")}>
           Explore the community →
         </button>
       </section>
@@ -1691,86 +508,70 @@ function Market({
   );
 }
 function Community({
-  finish,
-  nav,
+  canConfirmSettled,
+  onSettled,
 }: {
-  finish: (x: string) => void;
-  nav: (v: View) => void;
+  canConfirmSettled: boolean;
+  onSettled: () => void;
 }) {
-  let cards = [
-    [
-      "✦",
-      "Student ambassadors",
-      "Get an honest answer from someone who has made the same move.",
-    ],
+  const cards = [
     [
       "⌁",
-      "WhatsApp groups",
-      "Find your course, campus and language community.",
+      "Student groups",
+      "Course, campus and language groups, often run by students or student associations.",
     ],
     [
       "◌",
-      "Events this week",
+      "Local events",
       "Meet people over coffee, sport and shared discoveries.",
     ],
-    ["A", "Language exchange", "Practice French without pressure."],
+    ["A", "Language exchange", "Practise French without pressure."],
     ["⌂", "University communities", "Know where to turn on campus."],
-    ["+", "Emergency help", "Clear contacts, when you need them."],
   ];
   return (
     <>
       <Heading
-        stage="Stage 5 · Belonging"
+        stage="Community"
         title="You’re not alone."
-        copy="Your practical guide now becomes your local support network."
+        copy="Ideas for finding your people in Bordeaux."
       />
       <section className="feature">
         <div>
-          <p className="eyebrow">Start here</p>
-          <h2>Meet your student ambassador.</h2>
+          <p className="eyebrow">Idea we’re exploring</p>
+          <h2>Student ambassadors.</h2>
           <p>
-            They know Bordeaux, university life and the questions you may not
-            know how to ask.
+            We’d like to connect you with students who’ve made the same move.
+            This doesn’t exist yet.
           </p>
-          <Button
-            onClick={() => {
-              finish("Community");
-              alert("Your ambassador introduction is requested.");
-            }}
-          >
-            Meet an ambassador
-          </Button>
-        </div>
-        <div className="faces">
-          <b>R</b>
-          <b>A</b>
-          <b>M</b>
-          <small>+ 48 students ready to help</small>
         </div>
       </section>
+      <p className="sample-label">Sample ideas, for demonstration.</p>
       <section className="community">
         {cards.map(([i, n, c]) => (
-          <button
-            onClick={() => {
-              finish("Community");
-              alert(`${n} saved to your journey.`);
-            }}
-            key={n}
-          >
+          <article key={n}>
             <span>{i}</span>
             <b>{n}</b>
             <p>{c}</p>
-            <i>→</i>
-          </button>
+          </article>
         ))}
+        <article className="emergency">
+          <span>+</span>
+          <b>Emergency numbers in France</b>
+          <p>
+            112 (any emergency), 15 (medical), 17 (police), 18 (fire). Free from
+            any phone.
+          </p>
+        </article>
       </section>
-      <section className="banner">
-        <div>
-          <p className="eyebrow">Your final step</p>
-          <h2>You’re ready to feel at home.</h2>
-        </div>
-        <Button onClick={() => nav("settled")}>Complete my journey</Button>
-      </section>
+      {canConfirmSettled && (
+        <section className="banner">
+          <div>
+            <p className="eyebrow">When you feel settled</p>
+            <h2>You’re ready to feel at home.</h2>
+          </div>
+          <Button onClick={onSettled}>I feel settled</Button>
+        </section>
+      )}
     </>
   );
 }
@@ -1787,38 +588,15 @@ function Celebrate({
       <div className="spark">✦　·　✧　·　✦</div>
       <b className="badge">{home ? "⌂" : "✦"}</b>
       <p className="eyebrow">
-        {home ? "Accommodation confirmed" : "Your journey is complete"}
+        {home ? "Housing secured" : "You’ve worked through the main steps"}
       </p>
-      {!home && (
-        <strong>
-          100<small>%</small>
-        </strong>
-      )}
-      <h1>{home ? "Your home is sorted." : "Welcome to Bordeaux."}</h1>
+      <h1>{home ? "Your housing is sorted." : "Welcome to Bordeaux."}</h1>
       <p className="lede">
         {home
-          ? "Next: prepare your arrival. Your address now makes the essential setup steps easier."
-          : "You have your home, your essentials and your people. You’re ready."}
+          ? "Your plan has been updated. Housing guidance steps back, and your next tasks move up."
+          : "Keep TaupeFR handy for renewals, new questions and links to the official services."}
       </p>
-      {home && (
-        <div className="unlock">
-          ✓{" "}
-          <span>
-            <b>Next stage unlocked</b>
-            <small>Prepare your arrival</small>
-          </span>
-        </div>
-      )}
-      <Button onClick={onNext}>
-        {home ? "Prepare my arrival" : "Explore Bordeaux"}
-      </Button>
-      {!home && (
-        <small className="partners">
-          Core guidance stays free for students. Future revenue can come from
-          trusted housing, referral, marketplace and institutional
-          partnerships—without compromising the student journey.
-        </small>
-      )}
+      <Button onClick={onNext}>Back to my plan</Button>
     </main>
   );
 }
