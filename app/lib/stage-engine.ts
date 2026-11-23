@@ -42,7 +42,8 @@ export function getHousingOverlay(s: Situation): HousingOverlay {
 
 // ── Layer 2: priorities inside the stage ──
 
-const applies = (t: Task, s: Situation) => (t.appliesTo ? t.appliesTo(s) : true);
+const applies = (t: Task, s: Situation) =>
+  t.appliesTo ? t.appliesTo(s) : true;
 
 /** Housing tasks shown by the overlay right now (done or not). */
 export function housingTasksFor(s: Situation): Task[] {
@@ -146,7 +147,8 @@ export function completeTask(
   doneIds: ReadonlySet<string>,
   task: Task,
 ): { done: Set<string>; askMilestone: MilestoneId | null } {
-  if (task.confirms) return { done: new Set(doneIds), askMilestone: task.confirms };
+  if (task.confirms)
+    return { done: new Set(doneIds), askMilestone: task.confirms };
   const done = new Set(doneIds);
   done.add(task.id);
   return { done, askMilestone: null };

@@ -98,7 +98,10 @@ test("Ben: not sure about a visa → Stage 1, 'Check whether you need a visa' fi
 
 test("in France but not Bordeaux is Stage 2, whatever the visa status", () => {
   assert.equal(getStage(sit({ location: "in_france", visaNeeded: "yes" })), 2);
-  assert.equal(getStage(sit({ location: "in_france", visaNeeded: "not_sure" })), 2);
+  assert.equal(
+    getStage(sit({ location: "in_france", visaNeeded: "not_sure" })),
+    2,
+  );
 });
 
 test("outside France with no visa needed is Stage 2", () => {
@@ -111,7 +114,12 @@ test("visa applied but not received stays in Stage 1", () => {
 
 test("still applying returns the future Stage 0 (coming later)", () => {
   assert.equal(getStage(sit({ admission: "applying" })), 0);
-  assert.deepEqual(buildPlan(sit({ admission: "applying" }), new Set()).priorities.filter((t) => t.group !== "housing"), []);
+  assert.deepEqual(
+    buildPlan(sit({ admission: "applying" }), new Set()).priorities.filter(
+      (t) => t.group !== "housing",
+    ),
+    [],
+  );
 });
 
 test("task completion never changes the stage", () => {
@@ -124,7 +132,9 @@ test("housing never changes the stage", () => {
   for (const accommodation of ["none", "temporary", "secured"] as const) {
     assert.equal(getStage(sit({ visaNeeded: "yes", accommodation })), 1);
     assert.equal(
-      getStage(sit({ location: "in_bordeaux", firstDaysDone: true, accommodation })),
+      getStage(
+        sit({ location: "in_bordeaux", firstDaysDone: true, accommodation }),
+      ),
       4,
     );
   }
@@ -153,7 +163,10 @@ test("with no accommodation, housing is the top priority in every stage", () => 
 });
 
 test("housing counts toward progress only in Stage 1", () => {
-  const stage1 = buildPlan(sit({ visaNeeded: "yes" }), new Set(["housing_search"]));
+  const stage1 = buildPlan(
+    sit({ visaNeeded: "yes" }),
+    new Set(["housing_search"]),
+  );
   assert.equal(stage1.progress.done, 1);
   const stage4 = buildPlan(
     sit({ location: "in_bordeaux", firstDaysDone: true }),
@@ -207,7 +220,12 @@ test("securing housing removes the overlay but keeps the stage", () => {
 });
 
 test("the next milestone is suggested once all routine tasks in the stage are done", () => {
-  const s = sit({ location: "in_bordeaux", accommodation: "secured", visaNeeded: "yes", visaStatus: "received" });
+  const s = sit({
+    location: "in_bordeaux",
+    accommodation: "secured",
+    visaNeeded: "yes",
+    visaStatus: "received",
+  });
   const stageTaskIds = tasks.filter((t) => t.group === 3).map((t) => t.id);
   const none = buildPlan(s, new Set());
   assert.equal(none.suggestion, null);
@@ -221,10 +239,15 @@ test("the next milestone is suggested once all routine tasks in the stage are do
 
 test("every task's sources exist, and no source has an unconfirmed date", () => {
   for (const t of tasks) {
-    for (const id of t.sources) assert.ok(id in sources, `${t.id}: unknown source ${id}`);
+    for (const id of t.sources)
+      assert.ok(id in sources, `${t.id}: unknown source ${id}`);
   }
   for (const [id, src] of Object.entries(sources)) {
-    assert.equal(src.lastChecked, null, `${id} has a date; only Emmanuel confirms dates`);
+    assert.equal(
+      src.lastChecked,
+      null,
+      `${id} has a date; only Emmanuel confirms dates`,
+    );
     assert.equal(lastCheckedLabel(src), "Last checked: to be confirmed");
   }
 });
@@ -236,7 +259,13 @@ test("task and milestone ids are unique", () => {
 
 test("no task wording uses 'verified' or 'unlock'", () => {
   for (const t of tasks) {
-    const text = [t.title, t.summary, t.why, ...(t.prepare ?? []), ...(t.steps ?? [])].join(" ");
+    const text = [
+      t.title,
+      t.summary,
+      t.why,
+      ...(t.prepare ?? []),
+      ...(t.steps ?? []),
+    ].join(" ");
     assert.ok(!/verified|unlock/i.test(text), `${t.id}: ${text}`);
   }
 });

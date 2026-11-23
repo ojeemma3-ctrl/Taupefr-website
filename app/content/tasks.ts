@@ -50,10 +50,7 @@ export type Milestone = {
   apply: (s: Situation) => Situation;
 };
 
-export const stageInfo: Record<
-  StageId,
-  { title: string; meaning: string }
-> = {
+export const stageInfo: Record<StageId, { title: string; meaning: string }> = {
   0: {
     title: "Applying",
     meaning:
@@ -65,7 +62,8 @@ export const stageInfo: Record<
   },
   2: {
     title: "Getting ready to travel",
-    meaning: "Plan a safe arrival: your journey, where you'll stay and what to carry.",
+    meaning:
+      "Plan a safe arrival: your journey, where you'll stay and what to carry.",
   },
   3: {
     title: "Arriving in Bordeaux",
@@ -73,7 +71,8 @@ export const stageInfo: Record<
   },
   4: {
     title: "Settling into Bordeaux",
-    meaning: "Sort the essentials: health cover, housing aid and everyday life.",
+    meaning:
+      "Sort the essentials: health cover, housing aid and everyday life.",
   },
   5: {
     title: "Settled and connected",
@@ -91,7 +90,8 @@ export const tasks: Task[] = [
     overlay: "strong",
     doFirst: true,
     title: "Start your housing search on existing platforms",
-    summary: "CROUS, Studapart and other platforms. TaupeFR doesn't list homes.",
+    summary:
+      "CROUS, Studapart and other platforms. TaupeFR doesn't list homes.",
     why: "Sort housing early. Many later steps ask for an address; some accept a temporary one. Check the official source.",
     steps: [
       "Check CROUS student residences and their application dates.",
@@ -139,7 +139,8 @@ export const tasks: Task[] = [
     group: "housing",
     overlay: "soft",
     title: "Find long-term housing",
-    summary: "You have a temporary place. Keep looking for somewhere longer term.",
+    summary:
+      "You have a temporary place. Keep looking for somewhere longer term.",
     why: "A temporary place is a good start. Some later steps, such as CAF housing aid, usually ask about your main home.",
     sources: ["crousHousing", "studapart"],
   },
@@ -211,7 +212,8 @@ export const tasks: Task[] = [
     group: 2,
     doFirst: true,
     title: "Prepare the documents to carry in your hand luggage",
-    summary: "Passport, visa if you have one, admission letter, housing details.",
+    summary:
+      "Passport, visa if you have one, admission letter, housing details.",
     why: "Keep originals with you, not in checked luggage. Border checks may ask for them.",
     prepare: [
       "Passport (and visa, if you have one)",
@@ -287,7 +289,8 @@ export const tasks: Task[] = [
     group: 3,
     doFirst: true,
     title: "Validate your visa online, if your visa requires it",
-    summary: "Some long-stay student visas (VLS-TS) must be validated online after arrival.",
+    summary:
+      "Some long-stay student visas (VLS-TS) must be validated online after arrival.",
     appliesTo: needsVisa,
     why: "A VLS-TS is a long-stay visa that can act as a residence permit once validated. Check what your visa says. The official portal decides which route applies.",
     sources: ["anef"],
@@ -327,7 +330,8 @@ export const tasks: Task[] = [
     group: 4,
     doFirst: true,
     title: "Check whether you may be eligible for CAF housing aid",
-    summary: "CAF (Caisse d'allocations familiales) can help with rent. CAF decides.",
+    summary:
+      "CAF (Caisse d'allocations familiales) can help with rent. CAF decides.",
     appliesTo: (s) => s.accommodation === "secured",
     why: "If you're eligible, housing aid can reduce part of your rent. CAF usually asks about your housing, so this comes once your housing is secured.",
     sources: ["caf"],
@@ -394,7 +398,8 @@ export const tasks: Task[] = [
     id: "renewal_reminders",
     group: 5,
     title: "Set reminders for renewals",
-    summary: "Residence permit (if you have one), CAF yearly update, contracts.",
+    summary:
+      "Residence permit (if you have one), CAF yearly update, contracts.",
     why: "Some documents and benefits must be renewed or updated each year. The official organisations set the dates.",
     sources: ["anef", "caf"],
   },
