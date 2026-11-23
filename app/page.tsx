@@ -344,7 +344,9 @@ export default function Home() {
           </button>
         </nav>
         <section className="hero">
-          <p className="eyebrow">For international students moving to Bordeaux</p>
+          <p className="eyebrow">
+            For international students moving to Bordeaux
+          </p>
           <h1>
             Welcome to France,
             <br />
@@ -352,8 +354,8 @@ export default function Home() {
           </h1>
           <p className="lede">
             TaupeFR helps international students see what matters now, what to
-            do next and where to do it, from preparing to move to settling
-            into life in Bordeaux.
+            do next and where to do it, from preparing to move to settling into
+            life in Bordeaux.
           </p>
           <p className="scope-note">
             TaupeFR is an independent guide and a prototype. It links to
@@ -523,9 +525,7 @@ export default function Home() {
         {view === "dashboard" && (
           <Dashboard done={done} nav={nav} answers={answers} />
         )}{" "}
-        {view === "housing" && (
-          <Housing next={() => nav("found")} />
-        )}{" "}
+        {view === "housing" && <Housing next={() => nav("found")} />}{" "}
         {view === "admin" && (
           <Admin
             key={demo && demoStage === 6 ? "admin-caf-demo" : "admin"}
@@ -685,75 +685,77 @@ function GlobalAssistant({ context }: { context: string }) {
     setActive(defaultContext);
   };
   const step = active.step || "this step";
-  const config = active.service === "CAF"
-    ? {
-        opening: `You’re working on CAF → ${step}. What are you stuck on?`,
-        quick: step === "Enter your housing information"
-          ? [
-              "I don’t understand a field",
-              "Where is this on my lease?",
-              "I’m missing information",
-              "Ask something else",
-            ]
-          : [
-              "I can’t find the right option",
-              "I’m missing a document",
-              "The website is in French",
-              "Ask something else",
-            ],
-      }
-    : active.service === "French Health Insurance"
+  const config =
+    active.service === "CAF"
       ? {
-          opening: `You’re registering for French Health Insurance → ${step}. What do you need help with?`,
-          quick: [
-            "Which documents do I need?",
-            "I’m missing a document",
-            "I don’t understand a requirement",
-            "I received a message",
-          ],
+          opening: `You’re working on CAF → ${step}. What are you stuck on?`,
+          quick:
+            step === "Enter your housing information"
+              ? [
+                  "I don’t understand a field",
+                  "Where is this on my lease?",
+                  "I’m missing information",
+                  "Ask something else",
+                ]
+              : [
+                  "I can’t find the right option",
+                  "I’m missing a document",
+                  "The website is in French",
+                  "Ask something else",
+                ],
         }
-      : active.service === "Residence Permit"
+      : active.service === "French Health Insurance"
         ? {
-            opening: `You’re working on your Residence Permit → ${step}. What do you need help understanding?`,
+            opening: `You’re registering for French Health Insurance → ${step}. What do you need help with?`,
             quick: [
-              "I received a message",
+              "Which documents do I need?",
               "I’m missing a document",
-              "Explain a French term",
-              "What should I do next?",
+              "I don’t understand a requirement",
+              "I received a message",
             ],
           }
-        : active.service === "French Bank Account"
+        : active.service === "Residence Permit"
           ? {
-              opening:
-                "You’re choosing a French bank account. What matters most to you?",
+              opening: `You’re working on your Residence Permit → ${step}. What do you need help understanding?`,
               quick: [
-                "Lowest cost",
-                "Easy online opening",
-                "English-friendly",
-                "Branch access",
+                "I received a message",
+                "I’m missing a document",
+                "Explain a French term",
+                "What should I do next?",
               ],
             }
-          : active.service === "French SIM Card"
+          : active.service === "French Bank Account"
             ? {
                 opening:
-                  "You’re choosing a French mobile plan. What matters most?",
+                  "You’re choosing a French bank account. What matters most to you?",
                 quick: [
-                  "Lowest monthly cost",
-                  "Lots of data",
-                  "eSIM",
-                  "No long contract",
+                  "Lowest cost",
+                  "Easy online opening",
+                  "English-friendly",
+                  "Branch access",
                 ],
               }
-            : {
-                opening: "Hi. What would you like help getting done?",
-                quick: [
-                  "Find a home",
-                  "What should I do next?",
-                  "Administrative help",
-                  "Understand a document",
-                  "Something else",
-                ],
-              };
+            : active.service === "French SIM Card"
+              ? {
+                  opening:
+                    "You’re choosing a French mobile plan. What matters most?",
+                  quick: [
+                    "Lowest monthly cost",
+                    "Lots of data",
+                    "eSIM",
+                    "No long contract",
+                  ],
+                }
+              : {
+                  opening: "Hi. What would you like help getting done?",
+                  quick: [
+                    "Find a home",
+                    "What should I do next?",
+                    "Administrative help",
+                    "Understand a document",
+                    "Something else",
+                  ],
+                };
   const answer =
     choice === "What should I do next?"
       ? "Start with the action marked Next on your plan. You don’t have to follow a fixed order, and the official organisation decides what applies to you."
@@ -761,11 +763,11 @@ function GlobalAssistant({ context }: { context: string }) {
         ? "Look for the address, move-in date, rent information and landlord or residence details. Use the wording exactly as it appears on your agreement."
         : choice === "I can’t find the right option"
           ? "TaupeFR can explain what the service is asking for, but the official site remains the source for its current routes and labels."
-        : choice && !config.quick.includes(choice)
-          ? "This prototype can’t answer typed questions yet. Try one of the suggested questions, or check the official source for your task."
-          : choice
-            ? "I can help you understand the process and prepare the right information. I cannot make an eligibility or administrative decision for you."
-            : "";
+          : choice && !config.quick.includes(choice)
+            ? "This prototype can’t answer typed questions yet. Try one of the suggested questions, or check the official source for your task."
+            : choice
+              ? "I can help you understand the process and prepare the right information. I cannot make an eligibility or administrative decision for you."
+              : "";
   return (
     <>
       <button
@@ -1000,9 +1002,9 @@ function Housing({ next }: { next: () => void }) {
           <p className="eyebrow">What landlords usually ask for</p>
           <p>
             Often: an ID document, proof of studies, proof of income or funds,
-            and a guarantor. Requirements vary between landlords and
-            platforms. Guarantor schemes such as Visale exist; check whether
-            you are eligible on the official site.
+            and a guarantor. Requirements vary between landlords and platforms.
+            Guarantor schemes such as Visale exist; check whether you are
+            eligible on the official site.
           </p>
         </div>
         <button onClick={next} className="wide button">
