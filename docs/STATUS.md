@@ -6,7 +6,9 @@ Last updated: 23 Nov 2026.
 
 - The plan and the readiness answers are approved by Emmanuel (23 Nov 2026).
 - The live prototype (taupefr.ojeemma3.workers.dev) still runs the old one-page build from `main` at commit 857bdfb.
-- How the live site is published is not settled. Nothing in the repo deploys on merge; it appears to be published from Codex / OpenAI Sites. Emmanuel is checking. Don't deploy.
+- How the live site is published is not settled. Emmanuel is checking. Don't deploy.
+  - The workers.dev site appears to be published from Codex / OpenAI Sites (`.openai/hosting.json`). Nothing in the repo deploys on merge.
+  - A Netlify project called "taupefr" is connected to this GitHub repo outside the repo: it built a deploy preview for PR #1 automatically (23 Nov 2026). Merging to `main` may also trigger a Netlify production deploy (taupefr.netlify.app). To confirm in Netlify's settings.
 
 ## Pull request plan
 
