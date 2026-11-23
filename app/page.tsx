@@ -1,14 +1,24 @@
 "use client";
 import { useEffect, useState } from "react";
+import {
+  ConfirmMilestone,
+  Dashboard,
+  stageLabel,
+} from "./components/Dashboard.tsx";
 import { Profile } from "./components/Profile.tsx";
+import { Button, Heading } from "./components/ui.tsx";
 import { sampleStudents } from "./content/sample-students.ts";
-import { stageInfo } from "./content/tasks.ts";
+import type { MilestoneId } from "./content/tasks.ts";
 import type { Situation } from "./lib/situation.ts";
-import { getStage } from "./lib/stage-engine.ts";
+import {
+  buildPlan,
+  confirmMilestone,
+  getStage,
+  type Plan,
+} from "./lib/stage-engine.ts";
 import { parseSaved, save, useSavedRaw } from "./lib/storage.ts";
 type View =
   | "welcome"
-  | "journey"
   | "profile"
   | "dashboard"
   | "housing"
@@ -17,15 +27,6 @@ type View =
   | "market"
   | "community"
   | "settled";
-const stages = [
-  "Admission",
-  "Accommodation",
-  "Arrival",
-  "Administration",
-  "Furniture",
-  "Community",
-  "Settled",
-];
 const tasks = [
   {
     name: "French SIM card",
@@ -267,29 +268,15 @@ function Logo() {
     </div>
   );
 }
-function Button({
-  children,
-  onClick,
-  quiet = false,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  quiet?: boolean;
-}) {
-  return (
-    <button onClick={onClick} className={"button " + (quiet ? "quiet" : "")}>
-      {children}
-      <span>→</span>
-    </button>
-  );
-}
 export default function Home() {
   const [view, setView] = useState<View>("welcome"),
     [situation, setSituation] = useState<Situation | null>(null),
     [profileMode, setProfileMode] = useState<"new" | "update">("new"),
     [done, setDone] = useState<string[]>([]),
     [demo, setDemo] = useState(false),
-    [demoStage, setDemoStage] = useState(0);
+    [demoStage, setDemoStage] = useState(0),
+    [asking, setAsking] = useState<MilestoneId | null>(null),
+    [notice, setNotice] = useState<string | null>(null);
   const finish = (x: string) => setDone((d) => (d.includes(x) ? d : [...d, x]));
   const nav = (v: View) => setView(v);
   const saved = parseSaved(useSavedRaw());
@@ -297,6 +284,41 @@ export default function Home() {
   useEffect(() => {
     if (situation) save({ situation, done });
   }, [situation, done]);
+  const plan: Plan | null = situation
+    ? buildPlan(situation, new Set(done))
+    : null;
+  const toggleDone = (id: string) =>
+    setDone((d) => (d.includes(id) ? d.filter((x) => x !== id) : [...d, id]));
+  // Milestones always ask first. Yes updates the situation and the engine
+  // re-runs; "Not yet" changes nothing (docs/PRODUCT_PLAN.md §5).
+  const answer = (yes: boolean) => {
+    const id = asking;
+    setAsking(null);
+    if (!id || !situation) return;
+    const before = getStage(situation);
+    if (!yes) {
+      setNotice(`No change. You’re still in ${stageLabel(before)}.`);
+      return;
+    }
+    const next = confirmMilestone(situation, id);
+    setSituation(next);
+    const after = getStage(next);
+    if (id === "accommodation_secured" && view === "housing") {
+      setNotice(null);
+      nav("found");
+      return;
+    }
+    if (id === "feel_settled" && view === "community") {
+      setNotice(null);
+      nav("settled");
+      return;
+    }
+    setNotice(
+      after !== before
+        ? `Your plan has moved on. You’re now in ${stageLabel(after)}.`
+        : "Thanks. Your plan has been updated.",
+    );
+  };
   const startProfile = (mode: "new" | "update") => {
     setProfileMode(mode);
     setView("profile");
@@ -327,9 +349,6 @@ export default function Home() {
       <main className="welcome">
         <nav>
           <Logo />
-          <button className="plain" onClick={() => nav("journey")}>
-            How it works
-          </button>
         </nav>
         <section className="hero">
           <p className="eyebrow">
@@ -365,7 +384,7 @@ export default function Home() {
             ) : null}
             <Button
               quiet={Boolean(saved && !situation)}
-              onClick={() => nav("journey")}
+              onClick={() => startProfile("new")}
             >
               {saved && !situation ? "Start again" : "Start your journey"}
             </Button>
@@ -391,46 +410,6 @@ export default function Home() {
         </div>
       </main>
     );
-  if (view === "journey")
-    return (
-      <main className="journey">
-        <Logo />
-        <section>
-          <p className="eyebrow">Your path, made clear</p>
-          <h1>
-            Every international student
-            <br />
-            follows a journey.
-          </h1>
-          <p className="lede">
-            We guide you one step at a time—from your admission letter to
-            feeling at home in Bordeaux.
-          </p>
-          <Button onClick={() => startProfile("new")}>Start my journey</Button>
-        </section>
-        <ol>
-          {stages.map((x, i) => (
-            <li key={x}>
-              <span>{i + 1}</span>
-              <b>{x}</b>
-              <small>
-                {
-                  [
-                    "You’re accepted",
-                    "Find a safe place",
-                    "Land with confidence",
-                    "Get the essentials done",
-                    "Make it yours",
-                    "Meet your people",
-                    "Feel at home",
-                  ][i]
-                }
-              </small>
-            </li>
-          ))}
-        </ol>
-      </main>
-    );
   if (view === "profile")
     return (
       <>
@@ -442,10 +421,15 @@ export default function Home() {
           onDone={(next) => {
             if (profileMode === "new") setDone([]);
             setSituation(next);
+            setNotice(
+              profileMode === "update"
+                ? `Situation saved. You’re in ${stageLabel(getStage(next))}.`
+                : null,
+            );
             nav("dashboard");
           }}
           onCancel={() =>
-            nav(profileMode === "update" ? "dashboard" : "journey")
+            nav(profileMode === "update" ? "dashboard" : "welcome")
           }
         />
         {demo && (
@@ -463,9 +447,8 @@ export default function Home() {
         <Celebrate
           home
           onNext={() => {
-            finish("Accommodation");
             setSituation((x) => (x ? { ...x, accommodation: "secured" } : x));
-            nav("admin");
+            nav("dashboard");
           }}
         />
         {demo && (
@@ -492,15 +475,31 @@ export default function Home() {
     );
   return (
     <>
-      <Shell view={view} nav={nav} done={done} name={situation?.name}>
-        {view === "dashboard" && (
+      <Shell view={view} nav={nav} plan={plan} name={situation?.name}>
+        {notice && view === "dashboard" && (
+          <p className="notice" role="status">
+            {notice}
+            <button className="plain" onClick={() => setNotice(null)}>
+              Close
+            </button>
+          </p>
+        )}
+        {view === "dashboard" && situation && plan && (
           <Dashboard
-            nav={nav}
-            situation={situation ?? sampleStudents[0].situation}
+            situation={situation}
+            plan={plan}
             onUpdate={() => startProfile("update")}
+            onToggleDone={toggleDone}
+            onAsk={setAsking}
+            onOpen={nav}
           />
         )}{" "}
-        {view === "housing" && <Housing next={() => nav("found")} />}{" "}
+        {view === "housing" && (
+          <Housing
+            secured={situation?.accommodation === "secured"}
+            onSecured={() => setAsking("accommodation_secured")}
+          />
+        )}{" "}
         {view === "admin" && (
           <Admin
             key={demo && demoStage === 6 ? "admin-caf-demo" : "admin"}
@@ -511,8 +510,22 @@ export default function Home() {
           />
         )}{" "}
         {view === "market" && <Market finish={finish} nav={nav} />}{" "}
-        {view === "community" && <Community nav={nav} />}
+        {view === "community" && (
+          <Community
+            canConfirmSettled={Boolean(
+              situation?.location === "in_bordeaux" && !situation.settled,
+            )}
+            onSettled={() => setAsking("feel_settled")}
+          />
+        )}
       </Shell>
+      {asking && (
+        <ConfirmMilestone
+          id={asking}
+          onYes={() => answer(true)}
+          onNo={() => answer(false)}
+        />
+      )}
       {demo && (
         <DemoControls
           stage={demoStage}
@@ -564,23 +577,18 @@ function DemoControls({
 function Shell({
   view,
   nav,
-  done,
+  plan,
   name,
   children,
 }: {
   view: View;
   nav: (v: View) => void;
-  done: string[];
+  plan: Plan | null;
   name?: string;
   children: React.ReactNode;
 }) {
-  const links: [View, string, string][] = [
-    ["dashboard", "⌂", "My journey"],
-    ["housing", "⌂", "Find housing"],
-    ["admin", "✓", "Administration"],
-    ["market", "▦", "Marketplace"],
-    ["community", "◉", "Community"],
-  ];
+  // No menu of stages or sections: everything starts from the plan, and
+  // other screens are reached from the task that needs them.
   return (
     <main className="app">
       <aside>
@@ -590,23 +598,22 @@ function Shell({
           <small>Prototype · saved in this browser</small>
         </b>
         <nav>
-          {links.map(([v, i, n]) => (
-            <button
-              onClick={() => nav(v)}
-              className={view === v ? "active" : ""}
-              key={v}
-            >
-              <span>{i}</span>
-              {n}
-            </button>
-          ))}
+          <button
+            onClick={() => nav("dashboard")}
+            className={view === "dashboard" ? "active" : ""}
+          >
+            <span>⌂</span>
+            {view === "dashboard" ? "My plan" : "Back to my plan"}
+          </button>
         </nav>
-        <div className="mini">
-          <small>Your progress</small>
-          <b>
-            {done.length} {done.length === 1 ? "step" : "steps"} marked done
-          </b>
-        </div>
+        {plan && plan.stage !== 0 && (
+          <div className="mini">
+            <small>Stage {plan.stage} of 5</small>
+            <b>
+              {plan.progress.done} of {plan.progress.total} done
+            </b>
+          </div>
+        )}
         <button
           className="help"
           onClick={() =>
@@ -832,150 +839,13 @@ function GlobalAssistant({ context }: { context: string }) {
     </>
   );
 }
-function Heading({
-  stage,
-  title,
-  copy,
-  action,
+function Housing({
+  secured,
+  onSecured,
 }: {
-  stage: string;
-  title: string;
-  copy: string;
-  action?: React.ReactNode;
+  secured: boolean;
+  onSecured: () => void;
 }) {
-  return (
-    <header className="heading">
-      <div>
-        <p className="eyebrow">{stage}</p>
-        <h1>{title}</h1>
-        <p>{copy}</p>
-      </div>
-      {action}
-    </header>
-  );
-}
-const situationSummary = (s: Situation) => [
-  {
-    outside_france: "Outside France",
-    in_france: "In France, not yet in Bordeaux",
-    in_bordeaux: "In Bordeaux",
-  }[s.location],
-  {
-    yes: {
-      not_started: "Visa not started",
-      applied: "Visa applied for",
-      received: "Visa received",
-    }[s.visaStatus],
-    no: "No visa needed",
-    not_sure: "Not sure about a visa",
-  }[s.visaNeeded],
-  {
-    none: "No housing yet",
-    temporary: "Temporary housing",
-    secured: "Housing secured",
-  }[s.accommodation],
-];
-function Dashboard({
-  nav,
-  situation,
-  onUpdate,
-}: {
-  nav: (v: View) => void;
-  situation: Situation;
-  onUpdate: () => void;
-}) {
-  const stage = getStage(situation);
-  const info = stageInfo[stage];
-  const housed = situation.accommodation === "secured";
-  const next = housed ? "Set up your essentials" : "Find accommodation";
-  const nextCopy = housed
-    ? "Next, set up the essentials: a phone number, a bank account and health insurance. Requirements vary, so check each official source."
-    : "Sort housing early. Many later steps ask for an address; some accept a temporary one. Check the official source.";
-  return (
-    <>
-      <Heading
-        stage={
-          stage === 0 ? "Coming later" : `Stage ${stage} of 5 · ${info.title}`
-        }
-        title={situation.name ? `Hi ${situation.name}` : "Hi there"}
-        copy={info.meaning}
-        action={
-          <button className="update-situation" onClick={onUpdate}>
-            Update my situation
-          </button>
-        }
-      />
-      {stage === 0 ? (
-        <section className="coming-later">
-          <p className="eyebrow">Still applying?</p>
-          <h2>Guidance for applying is coming later.</h2>
-          <p>
-            For now, TaupeFR helps once you&rsquo;ve been accepted by a school
-            or university in Bordeaux. When that happens, update your situation
-            and your plan will appear here.
-          </p>
-          <Button onClick={onUpdate}>Update my situation</Button>
-        </section>
-      ) : (
-        <>
-          <section className="journey-next">
-            <div>
-              <p className="eyebrow">Next recommended action</p>
-              <h2>{next}</h2>
-              <p>{nextCopy}</p>
-              <Button onClick={() => nav(housed ? "admin" : "housing")}>
-                Continue my journey
-              </Button>
-            </div>
-            <aside>
-              <p className="eyebrow">Your situation</p>
-              <b>{situationSummary(situation).join(" · ")}</b>
-              <small>Something changed? Use Update my situation.</small>
-            </aside>
-          </section>
-          <section className="smart-order">
-            <div>
-              <p className="eyebrow">Your smart order</p>
-              <h2>Only what matters now.</h2>
-            </div>
-            <div className="order-columns">
-              <article>
-                <small>Next</small>
-                <b>{housed ? "French SIM card" : "Find housing"}</b>
-                <span>
-                  {housed
-                    ? "Your number helps with bank and housing steps."
-                    : "Many later steps ask for an address; some accept a temporary one."}
-                </span>
-              </article>
-              <article>
-                <small>Coming up</small>
-                <b>
-                  {housed
-                    ? "Bank account · Health insurance"
-                    : "Arrival preparation"}
-                </b>
-                <span>
-                  {housed
-                    ? "Complete these after your SIM is sorted."
-                    : "Plan your journey and your first days in Bordeaux."}
-                </span>
-              </article>
-              <article>
-                <small>Later</small>
-                <b>CAF · Marketplace · Community</b>
-                <span>
-                  These become relevant once your essentials are in place.
-                </span>
-              </article>
-            </div>
-          </section>
-        </>
-      )}
-    </>
-  );
-}
-function Housing({ next }: { next: () => void }) {
   return (
     <>
       <Heading
@@ -1019,9 +889,11 @@ function Housing({ next }: { next: () => void }) {
             eligible on the official site.
           </p>
         </div>
-        <button onClick={next} className="wide button">
-          I’ve secured a place <span>→</span>
-        </button>
+        {!secured && (
+          <button onClick={onSecured} className="wide button">
+            I’ve secured a place <span>→</span>
+          </button>
+        )}
       </section>
     </>
   );
@@ -1611,7 +1483,13 @@ function Market({
     </>
   );
 }
-function Community({ nav }: { nav: (v: View) => void }) {
+function Community({
+  canConfirmSettled,
+  onSettled,
+}: {
+  canConfirmSettled: boolean;
+  onSettled: () => void;
+}) {
   const cards = [
     [
       "⌁",
@@ -1661,13 +1539,15 @@ function Community({ nav }: { nav: (v: View) => void }) {
           </p>
         </article>
       </section>
-      <section className="banner">
-        <div>
-          <p className="eyebrow">When you feel settled</p>
-          <h2>You’re ready to feel at home.</h2>
-        </div>
-        <Button onClick={() => nav("settled")}>I feel settled</Button>
-      </section>
+      {canConfirmSettled && (
+        <section className="banner">
+          <div>
+            <p className="eyebrow">When you feel settled</p>
+            <h2>You’re ready to feel at home.</h2>
+          </div>
+          <Button onClick={onSettled}>I feel settled</Button>
+        </section>
+      )}
     </>
   );
 }
@@ -1689,12 +1569,10 @@ function Celebrate({
       <h1>{home ? "Your housing is sorted." : "Welcome to Bordeaux."}</h1>
       <p className="lede">
         {home
-          ? "Next: prepare your arrival and your first days in Bordeaux."
+          ? "Your plan has been updated. Housing guidance steps back, and your next tasks move up."
           : "Keep TaupeFR handy for renewals, new questions and links to the official services."}
       </p>
-      <Button onClick={onNext}>
-        {home ? "Prepare my arrival" : "Explore Bordeaux"}
-      </Button>
+      <Button onClick={onNext}>Back to my plan</Button>
     </main>
   );
 }
