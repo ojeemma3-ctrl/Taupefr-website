@@ -2100,7 +2100,8 @@ button:disabled {
   gap: 12px;
   margin-top: 20px;
 }
-.community button {
+.community button,
+.community article {
   position: relative;
   text-align: left;
   background: #fff;
@@ -2119,12 +2120,14 @@ button:disabled {
   color: var(--wine);
   font-size: 17px;
 }
-.community button > b {
+.community button > b,
+.community article > b {
   display: block;
   margin: 15px 0 7px;
   font-size: 14px;
 }
-.community button p {
+.community button p,
+.community article p {
   margin: 0;
   color: var(--muted);
   font-size: 11px;
@@ -2328,5 +2331,73 @@ button:disabled {
   }
   .goods article > div {
     height: 100px;
+  }
+}
+
+/* Honesty cleanup (PR 2): scope note, sample labels, housing guidance */
+.scope-note {
+  max-width: 520px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin-top: 12px;
+}
+.sample-label {
+  display: inline-block;
+  margin: 18px 0 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f2e9e5;
+  color: var(--wine);
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.02em;
+}
+.housing-guide {
+  max-width: 820px;
+}
+.housing-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.housing-options article,
+.landlord-docs {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 16px;
+}
+.housing-options h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+.housing-options p,
+.landlord-docs p:not(.eyebrow) {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.housing-options a {
+  display: block;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--wine);
+  margin-bottom: 6px;
+}
+.housing-options small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.landlord-docs {
+  margin: 12px 0 16px;
+}
+.community .emergency {
+  border-color: var(--wine);
+}
+@media (max-width: 700px) {
+  .housing-options {
+    grid-template-columns: 1fr;
   }
 }
