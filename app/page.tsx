@@ -1,5 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Profile } from "./components/Profile.tsx";
+import { sampleStudents } from "./content/sample-students.ts";
+import { stageInfo } from "./content/tasks.ts";
+import type { Situation } from "./lib/situation.ts";
+import { getStage } from "./lib/stage-engine.ts";
+import { parseSaved, save, useSavedRaw } from "./lib/storage.ts";
 type View =
   | "welcome"
   | "journey"
@@ -252,36 +258,6 @@ const housingPlatforms = [
     url: "",
   },
 ];
-const questions: [string, string[]][] = [
-  [
-    "Where will you study?",
-    ["University of Bordeaux", "Bordeaux Montaigne", "Other institution"],
-  ],
-  [
-    "When do you arrive?",
-    ["September 2026", "January 2027", "I’m not sure yet"],
-  ],
-  [
-    "What is your monthly housing budget?",
-    ["Under €450", "€450 – €650", "€650+"],
-  ],
-  [
-    "What feels right for you?",
-    ["Private studio", "Shared accommodation", "Student residence"],
-  ],
-  [
-    "Would a roommate work for you?",
-    ["Yes, I’d like to meet people", "Maybe", "No, I prefer my own space"],
-  ],
-  [
-    "What language do you speak most comfortably?",
-    ["English", "French", "Other"],
-  ],
-  [
-    "A little more about your move",
-    ["I need a guarantor", "I need admin support", "I’m ready to explore"],
-  ],
-];
 function Logo() {
   return (
     <div className="logo">
@@ -309,13 +285,22 @@ function Button({
 }
 export default function Home() {
   const [view, setView] = useState<View>("welcome"),
-    [step, setStep] = useState(0),
-    [answers, setAnswers] = useState<Record<string, string>>({}),
+    [situation, setSituation] = useState<Situation | null>(null),
+    [profileMode, setProfileMode] = useState<"new" | "update">("new"),
     [done, setDone] = useState<string[]>([]),
     [demo, setDemo] = useState(false),
     [demoStage, setDemoStage] = useState(0);
   const finish = (x: string) => setDone((d) => (d.includes(x) ? d : [...d, x]));
   const nav = (v: View) => setView(v);
+  const saved = parseSaved(useSavedRaw());
+  // Keep the profile and progress in this browser (see app/lib/storage.ts).
+  useEffect(() => {
+    if (situation) save({ situation, done });
+  }, [situation, done]);
+  const startProfile = (mode: "new" | "update") => {
+    setProfileMode(mode);
+    setView("profile");
+  };
   const flow: View[] = [
     "welcome",
     "profile",
@@ -331,8 +316,11 @@ export default function Home() {
   const moveDemo = (delta: number) => {
     const n = Math.max(0, Math.min(flow.length - 1, demoStage + delta));
     setDemoStage(n);
+    if (flow[n] === "profile") setProfileMode("new");
+    // The old click-through demo needs a situation past the profile step.
+    // Sample data, for demonstration (replaced by demo mode in PR 8).
+    if (n > 1 && !situation) setSituation(sampleStudents[0].situation);
     setView(flow[n]);
-    if (flow[n] === "profile") setStep(0);
   };
   if (view === "welcome")
     return (
@@ -344,7 +332,9 @@ export default function Home() {
           </button>
         </nav>
         <section className="hero">
-          <p className="eyebrow">For international students moving to Bordeaux</p>
+          <p className="eyebrow">
+            For international students moving to Bordeaux
+          </p>
           <h1>
             Welcome to France,
             <br />
@@ -352,8 +342,8 @@ export default function Home() {
           </h1>
           <p className="lede">
             TaupeFR helps international students see what matters now, what to
-            do next and where to do it, from preparing to move to settling
-            into life in Bordeaux.
+            do next and where to do it, from preparing to move to settling into
+            life in Bordeaux.
           </p>
           <p className="scope-note">
             TaupeFR is an independent guide and a prototype. It links to
@@ -361,7 +351,24 @@ export default function Home() {
             them or promise any outcome.
           </p>
           <div className="actions">
-            <Button onClick={() => nav("journey")}>Start your journey</Button>
+            {saved && !situation ? (
+              <Button
+                onClick={() => {
+                  setSituation(saved.situation);
+                  setDone(saved.done);
+                  nav("dashboard");
+                }}
+              >
+                Continue
+                {saved.situation.name ? ` as ${saved.situation.name}` : ""}
+              </Button>
+            ) : null}
+            <Button
+              quiet={Boolean(saved && !situation)}
+              onClick={() => nav("journey")}
+            >
+              {saved && !situation ? "Start again" : "Start your journey"}
+            </Button>
             <Button
               quiet
               onClick={() => {
@@ -399,7 +406,7 @@ export default function Home() {
             We guide you one step at a time—from your admission letter to
             feeling at home in Bordeaux.
           </p>
-          <Button onClick={() => nav("profile")}>Start my journey</Button>
+          <Button onClick={() => startProfile("new")}>Start my journey</Button>
         </section>
         <ol>
           {stages.map((x, i) => (
@@ -424,57 +431,23 @@ export default function Home() {
         </ol>
       </main>
     );
-  if (view === "profile") {
-    const [q, options] = questions[step],
-      value = answers[q];
+  if (view === "profile")
     return (
-      <main className="onboard">
-        <header>
-          <Logo />
-          <b>
-            Step {step + 1} of {questions.length}
-          </b>
-          <div className="bar">
-            <i style={{ width: `${((step + 1) / questions.length) * 100}%` }} />
-          </div>
-        </header>
-        <section>
-          <p className="eyebrow">Let’s make this personal</p>
-          <h1>{q}</h1>
-          <p>
-            Choose the option that best fits your situation. You can always
-            change it later.
-          </p>
-          <div className="choices">
-            {options.map((o) => (
-              <button
-                onClick={() => setAnswers((a) => ({ ...a, [q]: o }))}
-                className={value === o ? "selected" : ""}
-                key={o}
-              >
-                {value === o ? "✓" : "○"} <span>{o}</span>
-              </button>
-            ))}
-          </div>
-          <footer>
-            <button
-              className="plain"
-              onClick={() => (step ? setStep(step - 1) : nav("journey"))}
-            >
-              ← Back
-            </button>
-            <button
-              disabled={!value}
-              onClick={() =>
-                step === questions.length - 1
-                  ? nav("dashboard")
-                  : setStep(step + 1)
-              }
-            >
-              Continue →
-            </button>
-          </footer>
-        </section>
+      <>
+        <Profile
+          key={profileMode}
+          initial={profileMode === "update" ? situation : null}
+          mode={profileMode}
+          logo={<Logo />}
+          onDone={(next) => {
+            if (profileMode === "new") setDone([]);
+            setSituation(next);
+            nav("dashboard");
+          }}
+          onCancel={() =>
+            nav(profileMode === "update" ? "dashboard" : "journey")
+          }
+        />
         {demo && (
           <DemoControls
             stage={demoStage}
@@ -482,9 +455,8 @@ export default function Home() {
             onExit={() => setDemo(false)}
           />
         )}
-      </main>
+      </>
     );
-  }
   if (view === "found")
     return (
       <>
@@ -492,6 +464,7 @@ export default function Home() {
           home
           onNext={() => {
             finish("Accommodation");
+            setSituation((x) => (x ? { ...x, accommodation: "secured" } : x));
             nav("admin");
           }}
         />
@@ -519,13 +492,15 @@ export default function Home() {
     );
   return (
     <>
-      <Shell view={view} nav={nav} done={done}>
+      <Shell view={view} nav={nav} done={done} name={situation?.name}>
         {view === "dashboard" && (
-          <Dashboard done={done} nav={nav} answers={answers} />
+          <Dashboard
+            nav={nav}
+            situation={situation ?? sampleStudents[0].situation}
+            onUpdate={() => startProfile("update")}
+          />
         )}{" "}
-        {view === "housing" && (
-          <Housing next={() => nav("found")} />
-        )}{" "}
+        {view === "housing" && <Housing next={() => nav("found")} />}{" "}
         {view === "admin" && (
           <Admin
             key={demo && demoStage === 6 ? "admin-caf-demo" : "admin"}
@@ -590,11 +565,13 @@ function Shell({
   view,
   nav,
   done,
+  name,
   children,
 }: {
   view: View;
   nav: (v: View) => void;
   done: string[];
+  name?: string;
   children: React.ReactNode;
 }) {
   const links: [View, string, string][] = [
@@ -609,7 +586,8 @@ function Shell({
       <aside>
         <Logo />
         <b className="name">
-          Hi there<small>Prototype · sample data</small>
+          {name ? `Hi ${name}` : "Hi there"}
+          <small>Prototype · saved in this browser</small>
         </b>
         <nav>
           {links.map(([v, i, n]) => (
@@ -685,75 +663,77 @@ function GlobalAssistant({ context }: { context: string }) {
     setActive(defaultContext);
   };
   const step = active.step || "this step";
-  const config = active.service === "CAF"
-    ? {
-        opening: `You’re working on CAF → ${step}. What are you stuck on?`,
-        quick: step === "Enter your housing information"
-          ? [
-              "I don’t understand a field",
-              "Where is this on my lease?",
-              "I’m missing information",
-              "Ask something else",
-            ]
-          : [
-              "I can’t find the right option",
-              "I’m missing a document",
-              "The website is in French",
-              "Ask something else",
-            ],
-      }
-    : active.service === "French Health Insurance"
+  const config =
+    active.service === "CAF"
       ? {
-          opening: `You’re registering for French Health Insurance → ${step}. What do you need help with?`,
-          quick: [
-            "Which documents do I need?",
-            "I’m missing a document",
-            "I don’t understand a requirement",
-            "I received a message",
-          ],
+          opening: `You’re working on CAF → ${step}. What are you stuck on?`,
+          quick:
+            step === "Enter your housing information"
+              ? [
+                  "I don’t understand a field",
+                  "Where is this on my lease?",
+                  "I’m missing information",
+                  "Ask something else",
+                ]
+              : [
+                  "I can’t find the right option",
+                  "I’m missing a document",
+                  "The website is in French",
+                  "Ask something else",
+                ],
         }
-      : active.service === "Residence Permit"
+      : active.service === "French Health Insurance"
         ? {
-            opening: `You’re working on your Residence Permit → ${step}. What do you need help understanding?`,
+            opening: `You’re registering for French Health Insurance → ${step}. What do you need help with?`,
             quick: [
-              "I received a message",
+              "Which documents do I need?",
               "I’m missing a document",
-              "Explain a French term",
-              "What should I do next?",
+              "I don’t understand a requirement",
+              "I received a message",
             ],
           }
-        : active.service === "French Bank Account"
+        : active.service === "Residence Permit"
           ? {
-              opening:
-                "You’re choosing a French bank account. What matters most to you?",
+              opening: `You’re working on your Residence Permit → ${step}. What do you need help understanding?`,
               quick: [
-                "Lowest cost",
-                "Easy online opening",
-                "English-friendly",
-                "Branch access",
+                "I received a message",
+                "I’m missing a document",
+                "Explain a French term",
+                "What should I do next?",
               ],
             }
-          : active.service === "French SIM Card"
+          : active.service === "French Bank Account"
             ? {
                 opening:
-                  "You’re choosing a French mobile plan. What matters most?",
+                  "You’re choosing a French bank account. What matters most to you?",
                 quick: [
-                  "Lowest monthly cost",
-                  "Lots of data",
-                  "eSIM",
-                  "No long contract",
+                  "Lowest cost",
+                  "Easy online opening",
+                  "English-friendly",
+                  "Branch access",
                 ],
               }
-            : {
-                opening: "Hi. What would you like help getting done?",
-                quick: [
-                  "Find a home",
-                  "What should I do next?",
-                  "Administrative help",
-                  "Understand a document",
-                  "Something else",
-                ],
-              };
+            : active.service === "French SIM Card"
+              ? {
+                  opening:
+                    "You’re choosing a French mobile plan. What matters most?",
+                  quick: [
+                    "Lowest monthly cost",
+                    "Lots of data",
+                    "eSIM",
+                    "No long contract",
+                  ],
+                }
+              : {
+                  opening: "Hi. What would you like help getting done?",
+                  quick: [
+                    "Find a home",
+                    "What should I do next?",
+                    "Administrative help",
+                    "Understand a document",
+                    "Something else",
+                  ],
+                };
   const answer =
     choice === "What should I do next?"
       ? "Start with the action marked Next on your plan. You don’t have to follow a fixed order, and the official organisation decides what applies to you."
@@ -761,11 +741,11 @@ function GlobalAssistant({ context }: { context: string }) {
         ? "Look for the address, move-in date, rent information and landlord or residence details. Use the wording exactly as it appears on your agreement."
         : choice === "I can’t find the right option"
           ? "TaupeFR can explain what the service is asking for, but the official site remains the source for its current routes and labels."
-        : choice && !config.quick.includes(choice)
-          ? "This prototype can’t answer typed questions yet. Try one of the suggested questions, or check the official source for your task."
-          : choice
-            ? "I can help you understand the process and prepare the right information. I cannot make an eligibility or administrative decision for you."
-            : "";
+          : choice && !config.quick.includes(choice)
+            ? "This prototype can’t answer typed questions yet. Try one of the suggested questions, or check the official source for your task."
+            : choice
+              ? "I can help you understand the process and prepare the right information. I cannot make an eligibility or administrative decision for you."
+              : "";
   return (
     <>
       <button
@@ -856,10 +836,12 @@ function Heading({
   stage,
   title,
   copy,
+  action,
 }: {
   stage: string;
   title: string;
   copy: string;
+  action?: React.ReactNode;
 }) {
   return (
     <header className="heading">
@@ -868,19 +850,43 @@ function Heading({
         <h1>{title}</h1>
         <p>{copy}</p>
       </div>
+      {action}
     </header>
   );
 }
+const situationSummary = (s: Situation) => [
+  {
+    outside_france: "Outside France",
+    in_france: "In France, not yet in Bordeaux",
+    in_bordeaux: "In Bordeaux",
+  }[s.location],
+  {
+    yes: {
+      not_started: "Visa not started",
+      applied: "Visa applied for",
+      received: "Visa received",
+    }[s.visaStatus],
+    no: "No visa needed",
+    not_sure: "Not sure about a visa",
+  }[s.visaNeeded],
+  {
+    none: "No housing yet",
+    temporary: "Temporary housing",
+    secured: "Housing secured",
+  }[s.accommodation],
+];
 function Dashboard({
-  done,
   nav,
-  answers,
+  situation,
+  onUpdate,
 }: {
-  done: string[];
   nav: (v: View) => void;
-  answers: Record<string, string>;
+  situation: Situation;
+  onUpdate: () => void;
 }) {
-  const housed = done.includes("Accommodation");
+  const stage = getStage(situation);
+  const info = stageInfo[stage];
+  const housed = situation.accommodation === "secured";
   const next = housed ? "Set up your essentials" : "Find accommodation";
   const nextCopy = housed
     ? "Next, set up the essentials: a phone number, a bank account and health insurance. Requirements vary, so check each official source."
@@ -888,76 +894,84 @@ function Dashboard({
   return (
     <>
       <Heading
-        stage="Your journey to Bordeaux"
-        title="Hi there"
-        copy={
-          [
-            answers["Where will you study?"],
-            answers["When do you arrive?"],
-            answers["What is your monthly housing budget?"],
-          ]
-            .filter(Boolean)
-            .join(" · ") || "Your answers shape this plan."
+        stage={
+          stage === 0 ? "Coming later" : `Stage ${stage} of 5 · ${info.title}`
+        }
+        title={situation.name ? `Hi ${situation.name}` : "Hi there"}
+        copy={info.meaning}
+        action={
+          <button className="update-situation" onClick={onUpdate}>
+            Update my situation
+          </button>
         }
       />
-      <section className="journey-next">
-        <div>
-          <p className="eyebrow">Next recommended action</p>
-          <h2>{next}</h2>
-          <p>{nextCopy}</p>
-          <Button onClick={() => nav(housed ? "admin" : "housing")}>
-            Continue my journey
-          </Button>
-        </div>
-        <aside>
-          <p className="eyebrow">Personalised for you</p>
-          <b>
-            {answers["What feels right for you?"] || "Student housing"} ·{" "}
-            {answers["Where will you study?"] || "Your institution"}
-          </b>
-          <small>
-            {answers["A little more about your move"] ||
-              "Your answers shape this plan"}
-          </small>
-        </aside>
-      </section>
-      <section className="smart-order">
-        <div>
-          <p className="eyebrow">Your smart order</p>
-          <h2>Only what matters now.</h2>
-        </div>
-        <div className="order-columns">
-          <article>
-            <small>Next</small>
-            <b>{housed ? "French SIM card" : "Find housing"}</b>
-            <span>
-              {housed
-                ? "Your number helps with bank and housing steps."
-                : "Many later steps ask for an address; some accept a temporary one."}
-            </span>
-          </article>
-          <article>
-            <small>Coming up</small>
-            <b>
-              {housed
-                ? "Bank account · Health insurance"
-                : "Arrival preparation"}
-            </b>
-            <span>
-              {housed
-                ? "Complete these after your SIM is sorted."
-                : "Plan your journey and your first days in Bordeaux."}
-            </span>
-          </article>
-          <article>
-            <small>Later</small>
-            <b>CAF · Marketplace · Community</b>
-            <span>
-              These become relevant once your essentials are in place.
-            </span>
-          </article>
-        </div>
-      </section>
+      {stage === 0 ? (
+        <section className="coming-later">
+          <p className="eyebrow">Still applying?</p>
+          <h2>Guidance for applying is coming later.</h2>
+          <p>
+            For now, TaupeFR helps once you&rsquo;ve been accepted by a school
+            or university in Bordeaux. When that happens, update your situation
+            and your plan will appear here.
+          </p>
+          <Button onClick={onUpdate}>Update my situation</Button>
+        </section>
+      ) : (
+        <>
+          <section className="journey-next">
+            <div>
+              <p className="eyebrow">Next recommended action</p>
+              <h2>{next}</h2>
+              <p>{nextCopy}</p>
+              <Button onClick={() => nav(housed ? "admin" : "housing")}>
+                Continue my journey
+              </Button>
+            </div>
+            <aside>
+              <p className="eyebrow">Your situation</p>
+              <b>{situationSummary(situation).join(" · ")}</b>
+              <small>Something changed? Use Update my situation.</small>
+            </aside>
+          </section>
+          <section className="smart-order">
+            <div>
+              <p className="eyebrow">Your smart order</p>
+              <h2>Only what matters now.</h2>
+            </div>
+            <div className="order-columns">
+              <article>
+                <small>Next</small>
+                <b>{housed ? "French SIM card" : "Find housing"}</b>
+                <span>
+                  {housed
+                    ? "Your number helps with bank and housing steps."
+                    : "Many later steps ask for an address; some accept a temporary one."}
+                </span>
+              </article>
+              <article>
+                <small>Coming up</small>
+                <b>
+                  {housed
+                    ? "Bank account · Health insurance"
+                    : "Arrival preparation"}
+                </b>
+                <span>
+                  {housed
+                    ? "Complete these after your SIM is sorted."
+                    : "Plan your journey and your first days in Bordeaux."}
+                </span>
+              </article>
+              <article>
+                <small>Later</small>
+                <b>CAF · Marketplace · Community</b>
+                <span>
+                  These become relevant once your essentials are in place.
+                </span>
+              </article>
+            </div>
+          </section>
+        </>
+      )}
     </>
   );
 }
@@ -1000,9 +1014,9 @@ function Housing({ next }: { next: () => void }) {
           <p className="eyebrow">What landlords usually ask for</p>
           <p>
             Often: an ID document, proof of studies, proof of income or funds,
-            and a guarantor. Requirements vary between landlords and
-            platforms. Guarantor schemes such as Visale exist; check whether
-            you are eligible on the official site.
+            and a guarantor. Requirements vary between landlords and platforms.
+            Guarantor schemes such as Visale exist; check whether you are
+            eligible on the official site.
           </p>
         </div>
         <button onClick={next} className="wide button">
