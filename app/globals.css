@@ -689,83 +689,6 @@
     flex-direction: column;
   }
 }
-.admin-action-system {
-  display: grid;
-  grid-template-columns: 1.55fr 0.8fr;
-  gap: 14px;
-  margin: -10px 0 32px;
-}
-.next-action {
-  position: relative;
-  overflow: hidden;
-  background: var(--plum);
-  color: #fff;
-  border-radius: 16px;
-  padding: 27px 30px;
-}
-.next-action .eyebrow {
-  color: #ead9d1;
-}
-.next-action h2 {
-  font:
-    30px Georgia,
-    serif;
-  letter-spacing: -1px;
-  margin: 0 0 10px;
-}
-.next-action .why {
-  margin: 0;
-  max-width: 580px;
-  color: #f0e6e1;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.next-action .why b {
-  color: #fff;
-}
-.next-number {
-  position: absolute;
-  right: 24px;
-  top: 18px;
-  color: #89657a;
-  font:
-    56px Georgia,
-    serif;
-}
-.next-meta {
-  display: flex;
-  gap: 14px;
-  margin: 18px 0;
-  font-size: 11px;
-  color: #e9dbd3;
-}
-.next-meta b {
-  color: #fff;
-}
-.next-action .button {
-  background: #fff;
-  color: var(--plum);
-  padding: 11px 14px;
-  font-size: 12px;
-}
-.setup-progress {
-  background: #eee4de;
-  border-radius: 16px;
-  padding: 25px;
-}
-.setup-progress strong {
-  display: block;
-  font-size: 16px;
-  line-height: 1.25;
-  margin: 3px 0 20px;
-}
-.setup-progress small {
-  display: block;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.4;
-  margin-top: 12px;
-}
 .setup-bar {
   height: 7px;
   background: #d8c8c0;
@@ -778,99 +701,6 @@
   background: var(--wine);
   border-radius: 8px;
   transition: 0.3s;
-}
-.admin-list-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  margin-bottom: 17px;
-}
-.admin-list-heading h2 {
-  font:
-    25px Georgia,
-    serif;
-  letter-spacing: -1px;
-  margin: 0;
-}
-.admin-list-heading > small {
-  color: var(--muted);
-  font-size: 12px;
-}
-.admin article {
-  min-height: 310px;
-}
-.admin article.next-card {
-  border-color: #b68a99;
-  box-shadow: 0 5px 18px #6d243a12;
-}
-.admin .status {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: bold;
-}
-.admin .status b {
-  font-size: 14px;
-  color: var(--wine);
-}
-.admin article.complete .status b {
-  color: #62753a;
-}
-.admin .need-list {
-  padding-top: 13px;
-  margin-top: auto;
-}
-.admin .need-list > small {
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-}
-.need-list ul {
-  padding: 0;
-  margin: 6px 0 0;
-  list-style: none;
-  display: grid;
-  gap: 3px;
-}
-.need-list li {
-  font-size: 11px;
-  color: var(--ink);
-}
-.need-list li:before {
-  content: "•";
-  color: var(--wine);
-  margin-right: 6px;
-}
-.admin footer button {
-  font-size: 10px;
-  padding: 9px 10px;
-}
-.admin footer a {
-  white-space: nowrap;
-}
-@media (max-width: 900px) {
-  .admin-action-system {
-    grid-template-columns: 1fr;
-  }
-}
-@media (max-width: 600px) {
-  .next-action {
-    padding: 24px;
-  }
-  .next-number {
-    font-size: 46px;
-  }
-  .next-meta {
-    flex-direction: column;
-    gap: 5px;
-  }
-  .admin-list-heading {
-    align-items: start;
-    gap: 12px;
-    flex-direction: column;
-  }
 }
 :root {
   --ink: #29212a;
@@ -1631,80 +1461,6 @@ button:disabled {
   color: var(--muted);
   margin-top: 3px;
 }
-.admin {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 13px;
-}
-.admin article {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  padding: 18px;
-  min-height: 235px;
-  display: flex;
-  flex-direction: column;
-}
-.admin article.complete {
-  border-color: #aec18a;
-}
-.admin header,
-.admin footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.admin header > b {
-  color: var(--wine);
-}
-.admin header small {
-  background: var(--sand);
-  padding: 5px 7px;
-  border-radius: 6px;
-  color: var(--muted);
-  font-size: 10px;
-}
-.admin h3 {
-  font-size: 17px;
-  margin: 18px 0 7px;
-}
-.admin article > p {
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--muted);
-  margin: 0;
-}
-.admin article > div {
-  margin-top: auto;
-  padding-top: 16px;
-}
-.admin article > div small,
-.admin article > div b {
-  display: block;
-  font-size: 10px;
-  color: var(--muted);
-}
-.admin article > div b {
-  font-size: 11px;
-  color: var(--ink);
-  margin-top: 3px;
-}
-.admin footer {
-  margin-top: 16px;
-}
-.admin footer button {
-  border: 0;
-  background: var(--plum);
-  color: #fff;
-  padding: 8px 10px;
-  border-radius: 7px;
-  font-size: 10px;
-  font-weight: bold;
-}
-.admin a {
-  font-size: 10px;
-  color: var(--wine);
-}
 .goods {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1977,9 +1733,6 @@ button:disabled {
   .map {
     min-height: 260px;
   }
-  .admin {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .goods {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -2011,7 +1764,6 @@ button:disabled {
   }
   .dash,
   .checklist,
-  .admin,
   .community {
     grid-template-columns: 1fr;
   }
@@ -2515,4 +2267,79 @@ button:disabled {
   .name small {
     display: none;
   }
+}
+
+/* PR 6: one reusable task guide */
+.guide-why.applies {
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.guide-steps article > div {
+  align-items: start;
+}
+.guide-steps small {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.guide-sources {
+  list-style: none;
+  margin: 10px 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.guide-sources a,
+.guide-sources b {
+  display: block;
+  font-weight: bold;
+  font-size: 14px;
+}
+.guide-sources small {
+  display: block;
+  margin-top: 2px;
+}
+.guide-whats-next {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.guide-whats-next .plain.link {
+  font-size: 15px;
+  text-align: left;
+}
+.guide-where {
+  margin-top: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 19px;
+}
+.guide-where h3 {
+  margin: 8px 0 14px;
+  font-size: 15px;
+}
+.guide-where a {
+  color: var(--wine);
+}
+.guide-where button {
+  display: inline-block;
+  margin: 0 8px 10px 0;
+  border: 1px solid var(--wine);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--wine);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: bold;
+}
+.guide-where > small,
+.guide-sources small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.caf-guide {
+  padding-bottom: 96px;
 }

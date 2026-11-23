@@ -21,7 +21,9 @@ import { Button, Heading } from "./ui.tsx";
 /** Screens a task can point to. They are reached from tasks, not a menu. */
 export type Place = "housing" | "market" | "community";
 
-const taskPlaces: Partial<Record<string, { place: Place; label: string }>> = {
+export const taskPlaces: Partial<
+  Record<string, { place: Place; label: string }>
+> = {
   housing_search: { place: "housing", label: "Open the housing guide" },
   housing_long_term: { place: "housing", label: "Open the housing guide" },
   essentials_marketplace: { place: "market", label: "Open the marketplace" },
@@ -78,17 +80,15 @@ function TaskRow({
   task,
   onDone,
   onAsk,
-  onOpen,
+  onGuide,
 }: {
   task: Task;
   onDone: (id: string) => void;
   onAsk: (id: MilestoneId) => void;
-  onOpen: (place: Place) => void;
+  onGuide: (id: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const place = taskPlaces[task.id];
   return (
-    <li className={"task-row" + (open ? " open" : "")}>
+    <li className="task-row">
       <div className="task-main">
         <div>
           {task.doFirst && <span className="tag">Do first</span>}
@@ -96,8 +96,8 @@ function TaskRow({
           <p>{task.summary}</p>
         </div>
         <div className="task-actions">
-          <button className="plain" onClick={() => setOpen(!open)}>
-            {open ? "Hide details" : "Details"}
+          <button className="plain" onClick={() => onGuide(task.id)}>
+            Open guide
           </button>
           <button
             className="mark"
@@ -109,42 +109,6 @@ function TaskRow({
           </button>
         </div>
       </div>
-      {open && (
-        <div className="task-details">
-          <p>
-            <b>Why it matters:</b> {task.why}
-          </p>
-          {task.prepare && (
-            <>
-              <small>What to prepare</small>
-              <ul>
-                {task.prepare.map((x) => (
-                  <li key={x}>{x}</li>
-                ))}
-              </ul>
-            </>
-          )}
-          {task.steps && (
-            <>
-              <small>Steps</small>
-              <ol>
-                {task.steps.map((x) => (
-                  <li key={x}>{x}</li>
-                ))}
-              </ol>
-            </>
-          )}
-          <SourceLinks ids={task.sources} />
-          <p className="decides">
-            The official organisation decides what applies to you.
-          </p>
-          {place && (
-            <button className="plain link" onClick={() => onOpen(place.place)}>
-              {place.label} →
-            </button>
-          )}
-        </div>
-      )}
     </li>
   );
 }
@@ -155,14 +119,14 @@ export function Dashboard({
   onUpdate,
   onToggleDone,
   onAsk,
-  onOpen,
+  onGuide,
 }: {
   situation: Situation;
   plan: Plan;
   onUpdate: () => void;
   onToggleDone: (id: string) => void;
   onAsk: (id: MilestoneId) => void;
-  onOpen: (place: Place) => void;
+  onGuide: (id: string) => void;
 }) {
   const [hideSuggestion, setHideSuggestion] = useState<string | null>(null);
   const { stage, overlay } = plan;
@@ -196,7 +160,7 @@ export function Dashboard({
     );
 
   const stageTasks = plan.priorities.filter((t) => t.group !== "housing");
-  const rowProps = { onDone: onToggleDone, onAsk, onOpen };
+  const rowProps = { onDone: onToggleDone, onAsk, onGuide };
   const suggestion =
     plan.suggestion && plan.suggestion.id !== hideSuggestion
       ? plan.suggestion
