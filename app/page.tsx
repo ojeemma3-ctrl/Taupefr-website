@@ -5,6 +5,7 @@ import {
   Dashboard,
   stageLabel,
 } from "./components/Dashboard.tsx";
+import { Assistant } from "./components/Assistant.tsx";
 import { Profile } from "./components/Profile.tsx";
 import { TaskGuide } from "./components/TaskGuide.tsx";
 import { Button, Heading } from "./components/ui.tsx";
@@ -302,6 +303,7 @@ export default function Home() {
           />
         )}
       </Shell>
+      <Assistant situation={situation} plan={plan} done={done} />
       {guide && situation && (
         <TaskGuide
           key={guide.id}
@@ -422,7 +424,7 @@ function Shell({
           className="help"
           onClick={() =>
             window.dispatchEvent(
-              new CustomEvent("taupe-context", { detail: "Need help" }),
+              new CustomEvent("taupe-context", { detail: {} }),
             )
           }
         >
@@ -430,217 +432,7 @@ function Shell({
         </button>
       </aside>
       <section className="content">{children}</section>
-      <GlobalAssistant
-        context={
-          view === "dashboard" ? "Dashboard" : "your current TaupeFR step"
-        }
-      />
     </main>
-  );
-}
-type AssistantContext = {
-  service: string;
-  task: string;
-  step?: string;
-  stage: "Administration" | "Dashboard";
-};
-function GlobalAssistant({ context }: { context: string }) {
-  const defaultContext: AssistantContext = {
-    service: context === "Dashboard" ? "TaupeFR" : "TaupeFR",
-    task: context === "Dashboard" ? "Dashboard" : "Your journey",
-    stage: context === "Dashboard" ? "Dashboard" : "Administration",
-  };
-  const [open, setOpen] = useState(false),
-    [text, setText] = useState(""),
-    [active, setActive] = useState<AssistantContext>(defaultContext),
-    [history, setHistory] = useState<Record<string, string>>({});
-  const contextKey = `${active.service}|${active.task}|${active.step || "overview"}`;
-  const choice = history[contextKey] || null;
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<AssistantContext | string>).detail;
-      setActive(
-        typeof detail === "string"
-          ? { service: "TaupeFR", task: detail, stage: "Administration" }
-          : detail,
-      );
-      setOpen(true);
-    };
-    window.addEventListener("taupe-context", handler);
-    return () => window.removeEventListener("taupe-context", handler);
-  }, []);
-  const close = () => {
-    setOpen(false);
-    setActive(defaultContext);
-  };
-  const step = active.step || "this step";
-  const config =
-    active.service === "CAF"
-      ? {
-          opening: `You’re working on CAF → ${step}. What are you stuck on?`,
-          quick:
-            step === "Enter your housing information"
-              ? [
-                  "I don’t understand a field",
-                  "Where is this on my lease?",
-                  "I’m missing information",
-                  "Ask something else",
-                ]
-              : [
-                  "I can’t find the right option",
-                  "I’m missing a document",
-                  "The website is in French",
-                  "Ask something else",
-                ],
-        }
-      : active.service === "French Health Insurance"
-        ? {
-            opening: `You’re registering for French Health Insurance → ${step}. What do you need help with?`,
-            quick: [
-              "Which documents do I need?",
-              "I’m missing a document",
-              "I don’t understand a requirement",
-              "I received a message",
-            ],
-          }
-        : active.service === "Residence Permit"
-          ? {
-              opening: `You’re working on your Residence Permit → ${step}. What do you need help understanding?`,
-              quick: [
-                "I received a message",
-                "I’m missing a document",
-                "Explain a French term",
-                "What should I do next?",
-              ],
-            }
-          : active.service === "French Bank Account"
-            ? {
-                opening:
-                  "You’re choosing a French bank account. What matters most to you?",
-                quick: [
-                  "Lowest cost",
-                  "Easy online opening",
-                  "English-friendly",
-                  "Branch access",
-                ],
-              }
-            : active.service === "French SIM Card"
-              ? {
-                  opening:
-                    "You’re choosing a French mobile plan. What matters most?",
-                  quick: [
-                    "Lowest monthly cost",
-                    "Lots of data",
-                    "eSIM",
-                    "No long contract",
-                  ],
-                }
-              : {
-                  opening: "Hi. What would you like help getting done?",
-                  quick: [
-                    "Find a home",
-                    "What should I do next?",
-                    "Administrative help",
-                    "Understand a document",
-                    "Something else",
-                  ],
-                };
-  const answer =
-    choice === "What should I do next?"
-      ? "Start with the action marked Next on your plan. You don’t have to follow a fixed order, and the official organisation decides what applies to you."
-      : choice === "Where is this on my lease?"
-        ? "Look for the address, move-in date, rent information and landlord or residence details. Use the wording exactly as it appears on your agreement."
-        : choice === "I can’t find the right option"
-          ? "TaupeFR can explain what the service is asking for, but the official site remains the source for its current routes and labels."
-          : choice && !config.quick.includes(choice)
-            ? "This prototype can’t answer typed questions yet. Try one of the suggested questions, or check the official source for your task."
-            : choice
-              ? "I can help you understand the process and prepare the right information. I cannot make an eligibility or administrative decision for you."
-              : "";
-  return (
-    <>
-      <button
-        className="ask-taupe"
-        onClick={() => {
-          setActive(defaultContext);
-          setOpen(true);
-        }}
-      >
-        ✦ <span>Ask Taupe</span>
-      </button>
-      {open && (
-        <section className="taupe-drawer">
-          <header>
-            <div>
-              <b>Taupe Assistant</b>
-              <small>
-                Prototype with scripted answers · {active.service} →{" "}
-                {active.task}
-                {active.step ? ` → ${active.step}` : ""}
-              </small>
-            </div>
-            <button onClick={close}>×</button>
-          </header>
-          <div className="taupe-body">
-            <p>{config.opening}</p>
-            {!choice ? (
-              <div className="taupe-quick">
-                {config.quick.map((x) => (
-                  <button
-                    key={x}
-                    onClick={() =>
-                      setHistory((current) => ({ ...current, [contextKey]: x }))
-                    }
-                  >
-                    {x}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="student-msg">{choice}</div>
-                <div className="taupe-msg">{answer}</div>
-                <div className="taupe-quick">
-                  <button
-                    onClick={() =>
-                      setHistory((current) => {
-                        const next = { ...current };
-                        delete next[contextKey];
-                        return next;
-                      })
-                    }
-                  >
-                    Choose another question
-                  </button>
-                  <button onClick={close}>Back to guide</button>
-                </div>
-              </>
-            )}
-          </div>
-          <footer>
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Ask Taupe…"
-            />
-            <button
-              onClick={() => {
-                if (text) {
-                  setHistory((current) => ({ ...current, [contextKey]: text }));
-                  setText("");
-                }
-              }}
-            >
-              ↑
-            </button>
-          </footer>
-          <small>
-            TaupeFR explains the process. Official requirements and decisions
-            remain with the relevant authority.
-          </small>
-        </section>
-      )}
-    </>
   );
 }
 function Housing({
